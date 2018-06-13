@@ -58,7 +58,7 @@ class Line_Detector
 
     cv::Mat detect_lines(cv::Mat img)
     { 
-      cv::imshow(EDGES_WINDOW, img);
+
       cv::Mat lines;
       std::vector<int> clasif;
       std::vector<int> vecxR, vecyR;
@@ -78,6 +78,8 @@ class Line_Detector
 
       //Apply Probabilistic Hough Lines Transform to the image
       cv::cvtColor(img, img, CV_BGR2GRAY);
+      int cannyLowT = 50, cannyHighT = 90, canny_kernel = 5;
+      cv::Canny(img, img, cannyLowT, cannyHighT, canny_kernel);
       cv::HoughLinesP(img, lines, rho, theta, threshold, min_line_len, max_line_gap );
 
       double yb = img.rows;

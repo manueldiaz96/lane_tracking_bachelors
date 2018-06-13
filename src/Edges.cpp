@@ -20,7 +20,7 @@ public:
     : it_(nh_)
   {
     // Subscribe to input video feed and publish output video feed
-    image_sub_ = it_.subscribe("/usb_cam/image_raw", 1, &Edge_Detector::imageCb, this);
+    image_sub_ = it_.subscribe("/camera/image_raw", 1, &Edge_Detector::imageCb, this);
     image_pub_ = it_.advertise("/edge_detector/raw_image", 1);
 
   }
@@ -92,16 +92,16 @@ public:
     //Smooth the image for the coming Morphology transformations
     //cv::imshow(EDGES_WINDOW, mask_imyw);
     //Define the Canny thresholds using a ratio of 1:2 and a Kernel of 5x5
-    int cannyLowT = 50, cannyHighT = 90, canny_kernel = 5;
+    
     
     //Apply Canny Edge detection
-    cv::Canny(mask_imyw, img, cannyLowT, cannyHighT, canny_kernel);
+    
     
     
     cv::waitKey(3);
     cv::Mat imgEdges;
     //Convert to 3 channel image for image transport
-    cv::cvtColor(img, imgEdges, CV_GRAY2BGR);
+    cv::cvtColor(mask_imyw, imgEdges, CV_GRAY2BGR);
     return imgEdges;
 
   }	
