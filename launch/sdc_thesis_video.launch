@@ -11,38 +11,14 @@
   <rosparam param="horizonLine">[0, 0, 0]</rosparam>
 
 
-  <include file="$(find video_stream_opencv)/launch/camera.launch" >
-      <!-- node name and ros graph name -->
-      <arg name="camera_name" value="camera" />
-      <!-- full path to the video file -->
-      <!-- wget http://techslides.com/demos/sample-videos/small.mp4 -O /tmp/small.mp4 -->
-      <arg name="video_stream_provider" value="/home/manuel/Documents/Thesis/Perception/FinalPrj/SDC-Lane-and-Vehicle-Detection-Tracking/Part I - Simple Lane Detection/solidWhiteRight.mp4" />
-      <!-- set camera fps to (video files not affected) -->
-      <!-- <arg name="set_camera_fps" value="30"/> -->
-        <!-- set buffer queue size of frame capturing to -->
-        <arg name="buffer_queue_size" value="1000" />
-      <!-- throttling the querying of frames to -->
-      <arg name="fps" value="15" />
-      <!-- setting frame_id -->
-      <arg name="frame_id" value="camera_frame" />
-      <!-- camera info loading, take care as it needs the "file:///" at the start , e.g.:
-      "file:///$(find your_camera_package)/config/your_camera.yaml" -->
-      <arg name="camera_info_url" value="" />
-      <!-- flip the image horizontally (mirror it) -->
-      <arg name="flip_horizontal" value="false" />
-      <!-- flip the image vertically -->
-      <arg name="flip_vertical" value="false" />
-      <!-- visualize on an image_view window the stream generated -->
-      <arg name="visualize" value="false" />
-      <!-- visualize on an image_view window the stream generated -->
-   </include>
+  <node pkg="rosbag" type="play" name="video_player" args="-l /home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag"/>
 
   
-  <node name="edges_Node" pkg="self_driving_car_thesis" type="edgesNode">
+  <node name="edge_detector" pkg="self_driving_car_thesis" type="Edges.py">
   </node>
   
-  <node name="lines_Node" pkg="self_driving_car_thesis" type="linesNode">
-  </node>
+  <!--<node name="lines_detector" pkg="self_driving_car_thesis" type="Lines.py">
+  </node>-->
   
   
 </launch>
