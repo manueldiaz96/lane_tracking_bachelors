@@ -26,7 +26,7 @@ class image_converter:
     cv_image = self.detect_edges(cv_image)
 
     try:
-      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
     except CvBridgeError as e:
       print(e)
 
@@ -35,9 +35,9 @@ class image_converter:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = cv2.Canny(gray, 60, 80)
 
-    img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+    #img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
     
-    return img
+    return gray
 
 
 def main(args):

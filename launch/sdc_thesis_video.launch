@@ -17,8 +17,8 @@
   <node name="edge_detector" pkg="self_driving_car_thesis" type="Edges.py">
   </node>
   
-  <!--<node name="lines_detector" pkg="self_driving_car_thesis" type="Lines.py">
-  </node>-->
+  <node name="lines_detector" pkg="self_driving_car_thesis" type="Lines.py">
+  </node>
   
   
 </launch>

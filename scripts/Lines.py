@@ -11,7 +11,6 @@ import numpy as np
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-import random
 
 class image_converter:
 
@@ -22,7 +21,7 @@ class image_converter:
 
   def callback(self,data):
     try:
-      cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+      cv_image = self.bridge.imgmsg_to_cv2(data, "mono8")
     except CvBridgeError as e:
       print(e)
 
@@ -35,7 +34,7 @@ class image_converter:
 
   def detect_lines(self, img):
     
-    hough_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    hough_img = img
     rows, cols = hough_img.shape
 
     theta = np.pi/180.0
@@ -93,6 +92,8 @@ class image_converter:
 
 
     if not left_slopes:
+      if (float(leftLinek1[2])-float(leftLinek1[0])) == 0:
+        leftLinek1[2] = 1+leftLinek1[0]
       m_left = ((float(leftLinek1[3])-float(leftLinek1[1]))/(float(leftLinek1[2])-float(leftLinek1[0])))
       b_left = leftLinek1[1] - (m_left*leftLinek1[0])
 
@@ -101,6 +102,8 @@ class image_converter:
       b_left = np.mean(left_int)
 
     if not right_slopes:
+      if (float(rightLinek1[2])-float(rightLinek1[0])) == 0:
+        leftLinek1[2] = 1+leftLinek1[0]
       m_right = ((float(rightLinek1[3])-float(rightLinek1[1]))/(float(rightLinek1[2])-float(rightLinek1[0])))
       b_right = rightLinek1[1] - (m_right*rightLinek1[0])
 
@@ -145,6 +148,8 @@ class image_converter:
     rospy.set_param('/rightLinek1', rightLinek1)
     rospy.set_param('/rightLinek2', rightLinek2)
     rospy.set_param('/rightLinek3', rightLinek3)
+
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     cv2.line(img, (leftLine[0], leftLine[1]), (leftLine[2], leftLine[3]), [0, 200, 0], 3)
     cv2.line(img, (rightLine[0], rightLine[1]), (rightLine[2], rightLine[3]), [0, 200, 0], 3)
