@@ -9,6 +9,7 @@ import rospy
 import cv2
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+import time
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
@@ -69,9 +70,9 @@ class image_converter:
           line_img = np.hstack((im_gradient_x[y1-20:y2+20, x1-20:x2+20], im_gradient_y[y1-20:y2+20, x1-20:x2+20], im_mag[y1-20:y2+20, x1-20:x2+20], im_angle[y1-20:y2+20, x1-20:x2+20], gray[y1-20:y2+20, x1-20:x2+20]))
 
           if line_img.shape[0] and line_img.shape[1]:
-            histogram = self.get_histogram(mag[y1-20:y2+20, x1-20:x2+20], angle[y1-20:y2+20, x1-20:x2+20], hist_type = "ang2mag")
-            print(histogram)
-            cv2.imwrite("/home/manuel/Pictures/dataset_lines/frame_%d_line_%d.jpg" % (count_frame,count_img), line_img)
+            histogram, k_score = self.get_histogram(mag[y1-20:y2+20, x1-20:x2+20], angle[y1-20:y2+20, x1-20:x2+20], hist_type = "ang2mag")
+            print("K_score: ", k_score*1e05)
+            #cv2.imwrite("/home/manuel/Pictures/dataset_lines/frame_%d_line_%d.png" % (count_frame,count_img), line_img)
 
         count_img = count_img +1
 
@@ -93,7 +94,7 @@ class image_converter:
 
   def get_histogram (self, mag, angle, hist_type):
     #Binning of 10
-
+    begin = time.time()
     if hist_type == "ang2ang":
       #Angle respect to angle
       hist = np.zeros((36,))
@@ -106,7 +107,7 @@ class image_converter:
             i = 0
 
           hist[i] += 1
-
+      total = time.time() - begin
 
     elif hist_type == "mag2mag":
       #Magnitude respect to magnitude
@@ -124,6 +125,7 @@ class image_converter:
 
           hist[i] += 1
 
+      total = time.time() - begin
 
     elif hist_type == "ang2mag":
       #Angle respect to magnitude
@@ -143,8 +145,11 @@ class image_converter:
 
           hist[ang_i] += mag_i
 
+      total = time.time() - begin
 
-    return hist.astype(np.int)
+    k_score = total / (angle.shape[0] * angle.shape[1])
+
+    return hist.astype(np.int), k_score
 
 
 
