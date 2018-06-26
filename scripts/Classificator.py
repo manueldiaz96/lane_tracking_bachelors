@@ -49,7 +49,10 @@ class image_converter:
     count_img = 0
     count_frame = rospy.get_param('/frame')
 
-    if (count_frame%60) == 0:
+    if count_frame == 270:
+      rospy.loginfo("Done")
+
+    if (count_frame%30) == 0:
       gray_rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
       gradient = np.float32(gray) / 255.0
@@ -66,15 +69,37 @@ class image_converter:
       for line in lines:
 
         for x1, y1, x2, y2 in line:
+          lines_rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+          cv2.line(lines_rgb, (x1, y1), (x2, y2), [0, 200, 0], 2)
 
-          line_img = np.hstack((im_gradient_x[y1-20:y2+20, x1-20:x2+20], im_gradient_y[y1-20:y2+20, x1-20:x2+20], im_mag[y1-20:y2+20, x1-20:x2+20], im_angle[y1-20:y2+20, x1-20:x2+20], gray[y1-20:y2+20, x1-20:x2+20]))
+          line_img = np.hstack((im_gradient_x[y1-20:y2+20, x1-20:x2+20], im_gradient_y[y1-20:y2+20, x1-20:x2+20], im_mag[y1-20:y2+20, x1-20:x2+20], im_angle[y1-20:y2+20, x1-20:x2+20]))
 
           if line_img.shape[0] and line_img.shape[1]:
-            histogram, k_score = self.get_histogram(mag[y1-20:y2+20, x1-20:x2+20], angle[y1-20:y2+20, x1-20:x2+20], hist_type = "ang2mag")
-            print("K_score: ", k_score*1e05)
-            #cv2.imwrite("/home/manuel/Pictures/dataset_lines/frame_%d_line_%d.png" % (count_frame,count_img), line_img)
+            line_img = cv2.cvtColor(line_img, cv2.COLOR_GRAY2BGR)
+            line_img = np.hstack((line_img, lines_rgb[y1-20:y2+20, x1-20:x2+20, :]))
+
+            histogram_a2m, k_score1 = self.get_histogram(mag[y1-20:y2+20, x1-20:x2+20], angle[y1-20:y2+20, x1-20:x2+20], hist_type = "ang2mag")
+            histogram_m2m, k_score2 = self.get_histogram(mag[y1-20:y2+20, x1-20:x2+20], angle[y1-20:y2+20, x1-20:x2+20], hist_type = "mag2mag")
+            histogram_a2a, k_score3 = self.get_histogram(mag[y1-20:y2+20, x1-20:x2+20], angle[y1-20:y2+20, x1-20:x2+20], hist_type = "ang2ang")
+            
+            k_score = np.mean((k_score1, k_score2, k_score3))
+            
+            img_name = "frame_%d_line_%d"  % (count_frame,count_img)
+            k_str = "K_score: "+ str(k_score)
+            hist1_str = "\nAng2mag histogram: \n"+str(histogram_a2m)
+            hist2_str = "\nMag2mag histogram: \n"+str(histogram_m2m)
+            hist3_str = "\nAng2ang histogram: \n"+str(histogram_a2a)
+            separator = "\n**************************************************************************************\n"
+
+            hist_file = open("/home/manuel/Pictures/dataset_lines/histograms.txt", 'a')
+            hist_file.write(separator+'\n'+img_name+'\n'+'\n'+k_str+'\n'+hist1_str+'\n'+hist2_str+'\n'+hist3_str+'\n')
+            hist_file.close()
+
+            cv2.imwrite("/home/manuel/Pictures/dataset_lines/"+img_name+".png", line_img)
 
         count_img = count_img +1
+
+    
 
     count_frame = count_frame+1
     rospy.set_param('/frame', count_frame)
@@ -87,7 +112,7 @@ class image_converter:
     scaler.fit(data)
     data = scaler.transform(data)
 
-    data = (data*max_val).astype(np.int)
+    data = (data*max_val).astype(np.uint8)
 
     return data
 
@@ -147,7 +172,7 @@ class image_converter:
 
       total = time.time() - begin
 
-    k_score = total / (angle.shape[0] * angle.shape[1])
+    k_score = (total / (angle.shape[0] * angle.shape[1]))*1e05
 
     return hist.astype(np.int), k_score
 
