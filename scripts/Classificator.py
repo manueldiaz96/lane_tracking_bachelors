@@ -86,13 +86,14 @@ class image_converter:
             
             img_name = "frame_%d_line_%d"  % (count_frame,count_img)
             k_str = "K_score: "+ str(k_score)
+            clf = "Class: \n"
             hist1_str = "\nAng2mag histogram: \n"+str(histogram_a2m)
             hist2_str = "\nMag2mag histogram: \n"+str(histogram_m2m)
             hist3_str = "\nAng2ang histogram: \n"+str(histogram_a2a)
             separator = "\n**************************************************************************************\n"
 
             hist_file = open("/home/manuel/Pictures/dataset_lines/histograms.txt", 'a')
-            hist_file.write(separator+'\n'+img_name+'\n'+'\n'+k_str+'\n'+hist1_str+'\n'+hist2_str+'\n'+hist3_str+'\n')
+            hist_file.write(separator+'\n'+img_name+'\n'+'\n'+k_str+'\n'+clf+'\n'+hist1_str+'\n'+hist2_str+'\n'+hist3_str+'\n')
             hist_file.close()
 
             cv2.imwrite("/home/manuel/Pictures/dataset_lines/"+img_name+".png", line_img)
