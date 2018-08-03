@@ -13,14 +13,14 @@
   <rosparam param="frame">0</rosparam>
 
 
-  <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag"/>
+  <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag -l"/>
 
   
   <!--<node name="edge_detector" pkg="self_driving_car_thesis" type="Edges.py">
   </node>
   
   <node name="lines_detector" pkg="self_driving_car_thesis" type="Lines.py">
-  </node>-->
+  </node> -->
   
   
 </launch>

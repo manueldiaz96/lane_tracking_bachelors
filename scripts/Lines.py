@@ -25,25 +25,20 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
 
-    cv_image = self.detect_lines(cv_image)
+    lines = rospy.get_param('/detected_lines')
+
+    cv_image = self.detect_lines(cv_image, lines)
 
     try:
       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
     except CvBridgeError as e:
       print(e)
 
-  def detect_lines(self, img):
-    
-    hough_img = img
-    rows, cols = hough_img.shape
 
-    theta = np.pi/180.0
-    rho = 13
-    min_line_len = 30 #The minimum number of points that can form a line. Lines with less than this number of points are disregarded.
-    max_line_gap = 5 #The maximum gap between two points to be considered in the same line.
-    threshold = 45 #The minimum number of intersections to “detect” a line
 
-    lines = cv2.HoughLinesP(hough_img, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
+  def detect_lines(self, img, lines):
+
+    rows, cols = img.shape
     
     right_slopes = []
     left_slopes = []
@@ -103,13 +98,16 @@ class image_converter:
 
     if not right_slopes:
       if (float(rightLinek1[2])-float(rightLinek1[0])) == 0:
-        leftLinek1[2] = 1+leftLinek1[0]
+        rightLinek1[2] = 1+rightLinek1[0]
       m_right = ((float(rightLinek1[3])-float(rightLinek1[1]))/(float(rightLinek1[2])-float(rightLinek1[0])))
       b_right = rightLinek1[1] - (m_right*rightLinek1[0])
 
     else:
       m_right = np.mean(right_slopes)
       b_right = np.mean(right_int)
+
+    if (m_left- m_right) == 0:
+      m_left = 1+m_right
 
     x_horizon = (b_right - b_left)/(m_left - m_right)
     y_horizon = m_left*x_horizon + b_left
@@ -120,8 +118,8 @@ class image_converter:
     horizon_line[0] = int(np.mean(horizon_line))
     rospy.set_param('/horizonLine', horizon_line)
 
-    x_right_bottom = (rows - b_right) / m_right
-    x_left_bottom = (rows - b_left) / m_left
+    x_right_bottom = (rows - b_right) / (m_right+1)
+    x_left_bottom = (rows - b_left) / (m_left+1)
 
     leftLine = [ int(x_horizon), int(y_horizon), int(x_left_bottom), int(rows-1) ]
     rightLine = [ int(x_horizon), int(y_horizon), int(x_right_bottom), int(rows-1) ]
