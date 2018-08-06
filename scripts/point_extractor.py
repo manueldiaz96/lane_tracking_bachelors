@@ -70,6 +70,9 @@ class image_converter:
     left_lane_inds = []
     right_lane_inds = []
 
+    left_lane_centers = []
+    right_lane_centers = []
+
     # Step through the windows one by one
     for window in range(nwindows):
         # Identify window boundaries in x and y (and right and left)
@@ -79,6 +82,7 @@ class image_converter:
         win_xleft_high = leftx_current + margin
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
+
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,140,0), 2)
         cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,140,0), 2) 
@@ -95,9 +99,22 @@ class image_converter:
         if len(good_right_inds) > minpix:        
             rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
 
+
+        y_val = (win_y_high-win_y_low)/2
+        y_val += win_y_low 
+        centerR = np.array([rightx_current, y_val])
+        centerL = np.array([leftx_current, y_val])
+
+        left_lane_centers.append(centerL.tolist())
+        right_lane_centers.append(centerR.tolist())
+
     # Concatenate the arrays of indices
     left_lane_inds = np.concatenate(left_lane_inds)
     right_lane_inds = np.concatenate(right_lane_inds)
+
+    rospy.set_param('/left_points', left_lane_centers)
+    rospy.set_param('/right_points', right_lane_centers)
+
 
     # Extract left and right line pixel positions
     leftx = nonzerox[left_lane_inds]
@@ -116,6 +133,12 @@ class image_converter:
 
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [30, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 30]
+
+    for center in left_lane_centers:
+      cv2.circle(out_img,(center[0],center[1]), 5, (255,0,0), -1)
+
+    for center in right_lane_centers:
+      cv2.circle(out_img,(center[0],center[1]), 5, (0,0,255), -1)
 
     return out_img
 
