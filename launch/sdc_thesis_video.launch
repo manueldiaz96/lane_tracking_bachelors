@@ -15,7 +15,13 @@
 
   <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag -l"/>
 
+  <!--<node pkg="rosbag" type="play" name="video_player" args="/home/jose/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag -l"/>-->
+
+
   <node name="haar_edge_detector" pkg="self_driving_car_thesis" type="HaarEdges.py">  </node>
+
+  <node name="point_extractor" pkg="self_driving_car_thesis" type="point_extractor.py">  </node>
+
 
   <!--<node name="edge_detector" pkg="self_driving_car_thesis" type="Edges.py">
   </node>
