@@ -25,6 +25,7 @@ class image_converter:
       cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
     except CvBridgeError as e:
       print(e)
+      
 
     cv_image = self.HaarEdges(cv_image)
     is_bgr = len(cv_image.shape) == 3
