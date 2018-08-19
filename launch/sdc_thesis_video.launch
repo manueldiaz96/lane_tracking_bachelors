@@ -13,9 +13,9 @@
   <rosparam param="frame">0</rosparam>
  
 
-  <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag -l"/>
+  <!--<node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag -l"/>-->
 
- 	<!--<node pkg="rosbag" type="play" name="video_player" args="/home/jose/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l"/>-->
+ 	<node pkg="rosbag" type="play" name="video_player" args="/home/jose/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l"/>
 
   <node name="haar_edge_detector" pkg="self_driving_car_thesis" type="HaarEdges.py">  </node>
 

@@ -5,25 +5,27 @@ from __future__ import print_function
 
 import roslib
 import sys
+import os
 import rospy
 
 import cv2
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import splev, splrep
+from scipy.interpolate import splev, splrep, splprep
 
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 
 
-class spline_calculator: 
+class image_converter: 
 
   def __init__(self):
+    self.image_pub = rospy.Publisher("/Spline_publisher/image",Image,queue_size = 2)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/Lane_image/image",Image,self.callback)
-    self.image_pub = rospy.Publisher("/Spline_publisher/image",Image, queue_size = 2)
+    
 
   def callback(self,data):
     try:
@@ -31,7 +33,7 @@ class spline_calculator:
     except CvBridgeError as e:
       print(e)
 
-    cv_image = self.Spline(cv_image)
+    cv_image = self.Splines(cv_image)
     is_bgr = len(cv_image.shape) == 3
 
     try:
@@ -42,65 +44,73 @@ class spline_calculator:
     except CvBridgeError as e:
       print(e)
 
-  def Spline(self,img):
+  def Splines(self,img):
     imgcopy=img.copy()
+    out_img = np.dstack((img, img, img))
 
-    left_line=rospy.get_param('/left_points')
-    print(left_line)
-        #Crate a spline withput give the knots
-# m=np.array( [[27, 356],
-#  [43, 349],
-#  [68, 342],
-#  [96, 335],
-#  [111, 328],
-#  [128, 321],
-#  [165, 314],
-#  [186, 307],
-#  [212, 300],
-#  [247, 293],
-#  [268, 286],
-#  [302, 279],
-#  [316, 272],
-#  [342, 265],
-#  [367, 258],
-#  [410, 251],
-#  [455, 244],
-#  [495, 237],
-#  [531, 230],
-#  [569, 223],
-#  [602, 216],
-#  [629, 209],
-#  [655, 202],
-#  [698, 195],
-#  [745, 188]]
-# )
-# maxm= np.amax(m)
-# minm= np.amin(m)
-# mm = len(m)
-# print(mm)
-# x=np.zeros(mm)
-# y=np.zeros(mm)
-# for i in range(mm):
-#   x[i]= (m[i,0])
-  
-#   y[i]= (m[i,1])
+    left_line=rospy.get_param('~/left_points')
+    left_line_rng= len(left_line);
+    left_line=np.reshape(left_line,(2,left_line_rng))   
+    left_line_max=np.amax(left_line);
+    left_line_min=np.amin(left_line);
+    x_left=np.zeros(left_line_rng)
+    y_left=np.zeros(left_line_rng)
+    for i in range(left_line_rng):
+      x_left[i]= (left_line[0,i])
+      y_left[i]= (left_line[1,i])
+    k=2;
+    s=3;
+    #find the knot points for the x,y, the degree of spline, bspline coefficients
+    tckl,u=splprep([x_left,y_left],k=k)
+    xnew_left=np.linspace(left_line_min,left_line_max)
+    ynew_left = splev(xnew_left,tckl)
+    ynew_left=np.asarray(ynew_left)
+    for i in range(left_line_rng):
+      int(ynew_left(i))
 
-# print((x))
-# print((y))
-# plt.plot(x,y,'o')
-# plt.show()
-# k= 2;
-# s=3;
-# task= -1;
-# #find the knot points for the x,y, the degree of spline, bspline coefficients
-# spl=splrep(x,y,k=k,s=s)
-# #evaluae spline
-# ynew = splev(np.linspace(minm,maxm),spl)
-# print(ynew)
+    ##Problemas no puedo obtener el valor del ynew para saber que formato esta y modificar asi xnew.
+    ##No puedo generar la linea entre los ynew y xnew que conforma la spline. 
+    ##no puedo imprimir con print, os.write para ver variables, solo por set_param. Help
+    #ynew_left=ynew_left.tolist()
+    #rospy.set_param('/ynew_left',ynew_left)
+
+    right_line=rospy.get_param('~/right_points')
+    right_line_rng= len(right_line);
+    right_line=np.reshape(right_line,(right_line_rng,2))
+    right_line_max=np.amax(right_line);
+    right_line_min=np.amin(right_line);
+    x_rigth=np.zeros(right_line_rng)
+    y_right=np.zeros(right_line_rng)
+    for i in range(right_line_rng):
+      x_rigth[i]= (right_line[i,0])
+      y_right[i]= (right_line[i,1])
+    k= 2;
+    s= 3;
+    
+    #find the knot points for the x,y, the degree of spline, bspline coefficients
+    tckr,u=splprep([x_rigth,y_right],k=k,s=s)
+    xnew_right=np.linspace(right_line_min,right_line_max)
+    ynew_right = splev(xnew_right,tckr)
+    ynew_right=np.asarray(ynew_right)
+    xnew_right=xnew_right.tolist()
+    rospy.set_param('/xnew_right',xnew_right)
+    #ynew_right= ynew_right.tolist()
+    #rospy.set_param('/ynew_right',ynew_right)
+
+    for i in range (0,left_line_rng):
+       cv2.line(imgcopy,int(xnew_left[i]),int(ynew_left[i]),int(xnew_left[i+1]),int(ynew_left[i+1]),(255,0,0), 2)
+       if i+1 ==left_line_max:
+         cv2.line(imgcopy,(int(xnew_left[i]),int(ynew_left[i])),(int(xnew_left[i+1]),int(ynew_left[i+1])),(255,0,0), 2)
+         break
+
+    for i in range(right_line_rng):
+       cv2.line(imgcopy,(int(xnew_right[i],ynew_right[i])),(int(xnew_right[i+1],ynew_right[i+1])),(0,0,255), 2)
+    return imgcopy
+
+
 # xnew=np.linspace(minm,maxm)
 # plt.plot(x,y,'o',xnew,ynew)
 # plt.show()
-    return imgcopy
 
 def main(args):
   rospy.init_node('spline_node', anonymous=True)
