@@ -115,6 +115,7 @@ class image_converter:
     k= 2;
     s= 3;
 
+
     
     #x_rigth=np.sort(x_rigth)
     #y_right=np.sort(y_right)
@@ -136,14 +137,14 @@ class image_converter:
     rbfs_r=rbfs_r(xnew_right)
     rbfs_r=rbfs_r.tolist()
     rospy.set_param('rbfs_r',rbfs_r)
-    np.floor(rbfs_r)
+    #np.floor(rbfs_r)
     rbfs_r=np.asarray(rbfs_r,dtype=int)
     #ynew_right = splev(xnew_right,tckr)
     #ynew_right=np.asarray(ynew_right, dtype=int)
     #print(*ynew_right)
-    #xnew_right=xnew_right.tolist()
+    xnew_right=xnew_right.tolist()
     #rospy.set_param('/xnew_right',xnew_right)
-    #ynew_right=ynew_right.tolist()
+    ynew_right=ynew_right.tolist()
     #rospy.set_param('/ynew_right',ynew_right)
     xnew_right=np.asarray(xnew_right, dtype=int)
 
@@ -154,6 +155,7 @@ class image_converter:
 
     for i in range (0,right_line_rng):
       cv2.line(imgcopy,(xnew_right[i],rbfs_r[i]),(xnew_right[i+1],rbfs_r[i+1]),(0,0,255),2)
+      print(xnew_left[i])
     for i in range (0,left_line_rng):
       cv2.line(imgcopy,(xnew_left[i],rbfs[i]),(xnew_left[1+i],rbfs[1+i]),(255,0,0),2)
 

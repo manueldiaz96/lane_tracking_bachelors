@@ -12,6 +12,7 @@ import numpy as np
 
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from scipy.interpolate import splev, splrep, splprep, Rbf, interp1d, UnivariateSpline
 
 class image_converter:
 
@@ -64,15 +65,23 @@ class image_converter:
     rightx_current = rightx_base
     #Keep the value at t-1
     # Set the width of the windows +/- margin
-    margin = 80
+    margin = 50
     # Set minimum number of pixels found to recenter window / increase - decrease 
-    minpix = 120
+    minpix = 0
     # Create empty lists to receive left and right lane pixel indices
     left_lane_inds = []
     right_lane_inds = []
 
     left_lane_centers = [] #this hold the door 
     right_lane_centers = []
+
+    leftx_M_ch = []
+    rightx_M_ch = []
+    lefty_M_ch = []
+    righty_M_ch = []
+
+    positionsR=[]
+    positionsL=[]
 
     # Step through the windows one by one
     for window in range(nwindows/2):
@@ -98,25 +107,44 @@ class image_converter:
         right_lane_inds.append(good_right_inds)
         # If you found > minpix pixels, recenter next window on their mean position
         if len(good_left_inds) > minpix:
-            leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+            leftx_M_ch = (nonzerox[good_left_inds])
+            lefty_M_ch = (nonzeroy[good_left_inds])
         if len(good_right_inds) > minpix:        
-            rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+            rightx_M_ch = (nonzerox[good_right_inds])
+            righty_M_ch = (nonzeroy[good_right_inds])
 
-        
+        #rightx_M_ch = np.reshape(rightx_M_ch,(len(rightx_M_ch),)) 
+        #righty_M_ch = np.reshape(righty_M_ch,(len(righty_M_ch),))
+        print(rightx_M_ch)
+
+        #lefty_M_ch= np.reshape(lefty_M_ch,(len(lefty_M_ch),))
+        #leftx_M_ch= np.reshape(leftx_M_ch,(len(leftx_M_ch),))
+
+       
+
+        #Fit a second order polynomial to each
+        ml, bl = np.polyfit(leftx_M_ch, lefty_M_ch, 1)
+        mr, br = np.polyfit(rightx_M_ch, righty_M_ch, 1)
+
 
 
         y_val = (win_y_high-win_y_low)/2
-        y_val += win_y_low       
+        y_val += win_y_low 
 
+        x_new_left= ((y_val+win_y_high)-bl)/ml
+        x_new_right= ((y_val+win_y_high)-br)/mr 
+
+        rightx_current=[x_new_right,y_val]
+        leftx_current=[x_new_left,y_val]
         centerR = np.array([rightx_current, y_val])
         centerL = np.array([leftx_current, y_val])
 
-        #
+        
         # leftx_ind=[]
         # rightx_ind=[]
         # y_ind=[]
         # for i in range(len(centerR)):   
-        #     if((centerR[i+1,0]-centerR[i,0])>0):
+        #     if((centerR[0,0]-centerR[i,0])>0):
         #         rightx_ind.append(centerR[i])
         #     if((y_val[i+1]-y_val[i])>0):
         #         y_ind[i].append(y_val[i])
@@ -127,27 +155,45 @@ class image_converter:
 
         #centerL=np.sort(centerL)
         #centerR=np.sort(centerR)
-        left_lane_centers.append(centerL.tolist())
+        left_lane_centers.append(centerL.tolist()) #Before was a np.array
         right_lane_centers.append(centerR.tolist())
 
-    # Concatenate the arrays of indices
-    left_lane_inds = np.concatenate(left_lane_inds)
-    right_lane_inds = np.concatenate(right_lane_inds)
+    for i in range(len(rightx_M_ch)):
+        positionsR=np.array([rightx_M_ch[i],righty_M_ch[i]])
+    for i in range (len(lefty_M_ch)):
+        positionsL=np.array([leftx_M_ch[i],lefty_M_ch[i]])
+
+    # print("shape PsR",(positionsR.shape))
+    # positionsR=np.reshape(positionsR,(len(positionsR),))
+    # positionsL=np.reshape(positionsL,(len(positionsL),))
+    # # Concatenate the arrays of indices
+    # left_lane_inds = np.concatenate(left_lane_inds)
+    # right_lane_inds = np.concatenate(right_lane_inds)
+    # print(positionsL)
 
     rospy.set_param('/left_points', left_lane_centers)
     rospy.set_param('/right_points', right_lane_centers)
     # Generate x and y values for plotting
 
 
-    # # Extract left and right line pixel positions
-    # leftx = nonzerox[left_lane_inds]
-    # lefty = nonzeroy[left_lane_inds] 
-    # rightx = nonzerox[right_lane_inds]
-    # righty = nonzeroy[right_lane_inds] 
+    # left_line=rospy.get_param('~/left_points')
+    # left_line_rng= len(left_line);
+    # left_line=np.reshape(left_line,(left_line_rng,2))   
+    # left_line_max=np.amax(left_line);
+    # left_line_min=np.amin(left_line);
+    # x_left=np.zeros(left_line_rng)
+    # y_left=np.zeros(left_line_rng)
+    # for i in range(left_line_rng):
+    #   x_left[i]= (left_line[i,0])
+    #   y_left[i]= (left_line[i,1])
+    #   if(x_left[i]==0):
+    #     x_left[i]=x_left[i-1]
+    #   if (y_left[i]==0):
+    #     y_left[i]=y_left[i-1]
 
-    # # Fit a second order polynomial to each
-    # left_fit = np.polyfit(lefty, leftx, 2)
-    # right_fit = np.polyfit(righty, rightx, 2)
+
+    # # Extract left and right line pixel positions
+
     # # At this point, you're done! But here is how you can visualize the result as well:
     # ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
     # left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]

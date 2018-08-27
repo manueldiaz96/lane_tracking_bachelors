@@ -47,13 +47,13 @@ class image_converter:
     #canny = mask
 
     ddepth = -1
-    kernel =np.array([[0,0,1],[0,1,0],[1,0,0]],dtype=np.float32)
+    kernel =np.array([[0,0,1,1],[0,1,1,1],[1,1,1,0],[1,1,0,0]],dtype=np.float32)
 
     kernel /= kernel.shape[0]*kernel.shape[1]
 
     mask[:, 0:w/2] = cv2.filter2D(mask[: ,0:w/2], ddepth, kernel)
 
-    kernel =np.array([[1,0,0],[0,1,0],[0,0,1]],dtype=np.float32)
+    kernel =np.array([[1,1,0,0],[1,1,1,0],[0,1,1,1],[0,0,1,1]],dtype=np.float32)
 
     kernel /= kernel.shape[0]*kernel.shape[1]
 

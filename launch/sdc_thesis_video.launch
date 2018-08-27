@@ -19,7 +19,7 @@
 
   <node name="haar_edge_detector" pkg="self_driving_car_thesis" type="HaarEdges.py">  </node>
 
-  <node name="point_extractor" pkg="self_driving_car_thesis" type="point_extractor.py">  </node>
+  <!--<node name="point_extractor" pkg="self_driving_car_thesis" type="point_extractor.py">  </node>-->
 
   <node name="spline_node" pkg="self_driving_car_thesis" type="Splines.py">  </node>
 
