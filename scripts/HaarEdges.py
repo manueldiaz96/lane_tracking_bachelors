@@ -44,16 +44,22 @@ class image_converter:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)[5*(h/12) : 22*(h/24), :]
     h, w = gray.shape
     mask =  gray.copy()
-    #canny = mask
+    #canny = mask 
+
+    #Kernel 25x25
+    #Resize 640xN
+
 
     ddepth = -1
-    kernel =np.array([[0,0,1,1],[0,1,1,1],[1,1,1,0],[1,1,0,0]],dtype=np.float32)
+    #kernel =np.array([[0,0,1],[0,1,0],[1,0,0]],dtype=np.float32)
+    kernel = np.kron(self.getKernel("diag_Left"),np.ones((5,5)))
 
     kernel /= kernel.shape[0]*kernel.shape[1]
 
     mask[:, 0:w/2] = cv2.filter2D(mask[: ,0:w/2], ddepth, kernel)
 
-    kernel =np.array([[1,1,0,0],[1,1,1,0],[0,1,1,1],[0,0,1,1]],dtype=np.float32)
+    #kernel =np.array([[1,0,0],[0,1,0],[0,0,1]],dtype=np.float32)
+    kernel = np.kron(self.getKernel("diag_Right"),np.ones((5,5)))
 
     kernel /= kernel.shape[0]*kernel.shape[1]
 
