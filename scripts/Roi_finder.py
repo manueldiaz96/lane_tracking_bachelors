@@ -17,7 +17,7 @@ class image_converter:
   def __init__(self):
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/Haar_edges/image",Image,self.callback)
-    self.image_pub = rospy.Publisher("/line_detector/image_lines",Image, queue_size = 2)
+    #self.image_pub = rospy.Publisher("/line_detector/image_lines",Image, queue_size = 2)
 
   def callback(self,data):
     try:
@@ -27,16 +27,16 @@ class image_converter:
 
     cv_image= self.detect_lines(cv_image)
 
-    is_bgr = len(cv_image.shape) == 3
+    # is_bgr = len(cv_image.shape) == 3
 
-    if True:
-      try:
-        if is_bgr:
-          self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-        else:
-          self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
-      except CvBridgeError as e:
-        print(e)
+    # if True:
+    #   try:
+    #     if is_bgr:
+    #       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+    #     else:
+    #       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
+    #   except CvBridgeError as e:
+    #     print(e)
 
 
 
@@ -55,21 +55,9 @@ class image_converter:
 
     lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]), minLineLength=min_line_len, maxLineGap=max_line_gap)
 
-    horizon_line = rospy.get_param('/horizonLine')
-    margin = rospy.get_param('/margin')
+    hor_margin = rospy.get_param('/hor_margin')
 
-    leftLinek1 = rospy.get_param('/leftLinek1')
-    leftLinek2 = rospy.get_param('/leftLinek2')
-    leftLinek3 = rospy.get_param('/leftLinek3')
-
-    rightLinek1 = rospy.get_param('/rightLinek1')
-    rightLinek2 = rospy.get_param('/rightLinek2')
-    rightLinek3 = rospy.get_param('/rightLinek3')
-
-    right_slopes = []
-    left_slopes = []
-    right_int = []
-    left_int = []
+    horizon_line = rospy.get_param('/horizon_line')
 
     x1_l = []
     x2_l = []
@@ -95,14 +83,14 @@ class image_converter:
             slope = ((float(y2)-float(y1))/(float(x2)-float(x1)))
             intercept = y1 - (slope*x1)
 
-            is_right = (slope > 0.6) and (slope < 0.8) and (x1 > (w/2)+margin) and (x2 > (w/2)+margin) 
-            is_left = (slope < -0.6) and (slope > -0.8) and (x2 < (w/2)+margin) and (x2 < (w/2)+margin)          
+            is_right = (slope > 0.6) and (slope < 0.8) and (x1 > (w/2)+hor_margin) and (x2 > (w/2)+hor_margin) 
+            is_left = (slope < -0.6) and (slope > -0.8) and (x2 < (w/2)+hor_margin) and (x2 < (w/2)+hor_margin)          
 
             if not np.mean(horizon_line):
               is_below_horizon = (y1 > h/2) and (y2 > h/2)
 
             else:
-              is_below_horizon = (y1 > horizon_line[0]) and (y2 > horizon_line[0])
+              is_below_horizon = (y1 > horizon_line) and (y2 > horizon_line)
 
             if is_below_horizon:
 
@@ -131,7 +119,6 @@ class image_converter:
         mr, br = rospy.get_param('/rightLine')
 
 
-
       if len(x1_l):
         leftLine = [np.int(np.mean(x1_l)), np.int(np.mean(y1_l)), np.int(np.mean(x2_l)), np.int(np.mean(y2_l))]
         x1, y1, x2, y2 = leftLine
@@ -147,58 +134,27 @@ class image_converter:
         x_horizon = (br - bl)/(ml - mr)
         y_horizon = ml*x_horizon + bl
 
-        xl_bottom = np.int((h-bl)/ml)-100
-        xr_bottom = np.int((h-br)/mr)+100
+        rospy.set_param('/horizon_line', np.int(y_horizon))
 
-        cv2.line(img, (int(x_horizon)-100, int(y_horizon)), (int(x_horizon)+100, int(y_horizon)), [0, 0, 123], 3)
-        cv2.line(img, (int(x_horizon)-100, int(y_horizon)), (xl_bottom, h-1), [0, 0, 123], 3)
-        cv2.line(img, (int(x_horizon)+100, int(y_horizon)), (xr_bottom, h-1), [0, 0, 123], 3)
+        xl_bottom = np.int((h-bl)/ml)
+        xr_bottom = np.int((h-br)/mr)
 
-        
+        poly_points = [[int(x_horizon)-50, int(y_horizon)],[int(x_horizon)+50,int(y_horizon)],[xr_bottom+150, h-1], [xl_bottom-150, h-1]]
+        #points         top-left                            top-right                          bottom-right          bottom-left
+
+
+        rospy.set_param('/roi_points', poly_points)
+
+        # cv2.line(img, (poly_points[1][0],poly_points[1][1]), (poly_points[2][0],poly_points[2][1]), [0, 0, 123], 3)
+        # cv2.line(img, (poly_points[1][0],poly_points[1][1]), (poly_points[0][0],poly_points[0][1]), [0, 0, 123], 3)
+        # cv2.line(img, (poly_points[2][0],poly_points[2][1]), (poly_points[3][0],poly_points[3][1]), [0, 0, 123], 3)
+
     
-
-
-    #   if len(right_slopes):
-    #     m_right = np.mean(right_slopes)
-    #     b_right = np.mean(right_int)
-
-    #   if len(left_slopes):
-    #     m_left = np.mean(left_slopes)
-    #     b_left = np.mean(left_int)
-
-    #   if m_left and m_right:
-    #     x_horizon = (b_right - b_left)/(m_left - m_right)
-    #     y_horizon = m_left*x_horizon + b_left
-
-    #     if y_horizon < 0:
-    #       y_horizon = 0
-
-    #     horizon_line = [int(y_horizon), int(horizon_line[0]), int(horizon_line[1])]
-    #     horizon_line[0] = int(np.mean(horizon_line))
-    #     y_horizon = horizon_line[0]
-    #     print(horizon_line)
-    #     rospy.set_param('/horizonLine', horizon_line)
-
-    #     x_right_bottom = (h - b_right) / (m_right)
-    #     x_left_bottom = (h - b_left) / (m_left)
-
-    #     leftLine = [ int(x_horizon), int(y_horizon), int(x_left_bottom), int(h-1) ]
-    #     rightLine = [ int(x_horizon), int(y_horizon), int(x_right_bottom), int(h-1) ]
-
-    #     cv2.line(img, (leftLine[0], leftLine[1]), (leftLine[2], leftLine[3]), [0, 200, 0], 3)
-    #     cv2.line(img, (rightLine[0], rightLine[1]), (rightLine[2], rightLine[3]), [0, 200, 0], 3)
-    #     cv2.line(img, (0, int(y_horizon)), (w-1, int(y_horizon)), [0, 0, 123], 3)
-
-    # if lines == None:
-    #   print("Holi")
-
-          
-
     return img
 
 def main(args):
-  rospy.init_node('line_detector', anonymous=True)
-  rospy.loginfo("Line detector on")
+  rospy.init_node('roi_finder', anonymous=True)
+  rospy.loginfo("Roi finder on")
   ic = image_converter()
   
   try:

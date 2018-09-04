@@ -42,6 +42,7 @@ class image_converter:
     h, w, _ = img.shape
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)[5*(h/12) : 22*(h/24), :]
+    rospy.set_param('/vert_margin', np.int(5*(h/12)))
     h, w = gray.shape
     mask =  gray.copy()
     #canny = mask 
@@ -65,11 +66,11 @@ class image_converter:
 
     right_mask = cv2.filter2D(mask, ddepth, kernel)
 
-    margin = 135
+    hor_margin = 135
 
-    rospy.set_param('/margin', margin)
+    rospy.set_param('/hor_margin', hor_margin)
 
-    mask = np.hstack((left_mask[: ,0:(w/2)+margin], right_mask[:,(w/2)+margin : w]))
+    mask = np.hstack((left_mask[: ,0:(w/2)+hor_margin], right_mask[:,(w/2)+hor_margin : w]))
 
     thr = np.int(np.mean(mask[:,mask.shape[0]:]))+25
 
@@ -158,7 +159,7 @@ class image_converter:
 def main(args):
   rospy.init_node('HaarEdges_node_v2', anonymous=True)
   rospy.loginfo("HaarEdges_node_v2")
-  rospy.logwarn("Remeber to change the margin in HaarEdges node")
+  rospy.logwarn("Remeber to change the horizontal margin in HaarEdges node")
   edge_det = image_converter()
   
   try:
