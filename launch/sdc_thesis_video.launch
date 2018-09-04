@@ -11,17 +11,19 @@
   <rosparam param="horizonLine">[0, 0, 0]</rosparam>
 
   <rosparam param="frame">0</rosparam>
+
+  <rosparam param="xleft_lane">[476, 476, -0.1803, 504.913]</rosparam>
  
 
-  <!--<node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmira_0.bag -l"/>-->
+  <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l -r 1"/>
 
- 	<node pkg="rosbag" type="play" name="video_player" args="/home/jose/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l"/>
+ 	<!--<node pkg="rosbag" type="play" name="video_player" args="/home/jose/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l"/>-->
 
-  <node name="haar_edge_detector" pkg="self_driving_car_thesis" type="HaarEdges.py">  </node>
+  <node name="haar_edge_detector_v2" pkg="self_driving_car_thesis" type="HaarEdges_v2.py">  </node>
 
   <!--<node name="point_extractor" pkg="self_driving_car_thesis" type="point_extractor.py">  </node>-->
 
-  <node name="spline_node" pkg="self_driving_car_thesis" type="Splines.py">  </node>
+  <!--<node name="spline_node" pkg="self_driving_car_thesis" type="Splines.py">  </node>-->
 
   <!--<node name="edge_detector" pkg="self_driving_car_thesis" type="Edges.py">
   </node>

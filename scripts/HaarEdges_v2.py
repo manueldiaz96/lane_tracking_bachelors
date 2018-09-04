@@ -65,25 +65,18 @@ class image_converter:
 
     right_mask = cv2.filter2D(mask, ddepth, kernel)
 
-    mask = np.hstack((left_mask[: ,0:(w/2)+75], right_mask[:,(w/2)+75 : w]))
+    margin = 135
 
-    _, otsu_th = cv2.threshold(mask,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    rospy.set_param('/margin', margin)
 
-    otsu_th = cv2.dilate(otsu_th, cv2.getStructuringElement(cv2.MORPH_RECT,(5,5)), iterations = 2) 
+    mask = np.hstack((left_mask[: ,0:(w/2)+margin], right_mask[:,(w/2)+margin : w]))
 
-    adapt_th = 255-cv2.adaptiveThreshold(mask, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,21,2)
+    thr = np.int(np.mean(mask[:,mask.shape[0]:]))+25
 
-    adapt_th = cv2.dilate(adapt_th, cv2.getStructuringElement(cv2.MORPH_RECT,(5,5)), iterations = 2)
+    _ ,thresh1 = cv2.threshold(mask,thr,255,cv2.THRESH_BINARY)
 
-    #21*(h/24):h-1,(w/2)-10:(w/2)+10
+    canny = cv2.Canny(thresh1,100,255,apertureSize = 3)
 
-    otsu_Adapt = cv2.morphologyEx(cv2.bitwise_and(otsu_th, adapt_th), cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT,(5,5)))
-
-
-    #img = self.blobDetect(adapt_th)
-
-    _, contours, _ = cv2.findContours(otsu_Adapt, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    img = cv2.drawContours(otsu_Adapt, contours, -1, 255, 3)
     img[:, :5] = 0 
     img[:, w-5:] = 0
 
@@ -92,21 +85,8 @@ class image_converter:
     #img = np.vstack((np.hstack((otsu_th, th3))[5*(h/12) : 22*(h/24), :],np.hstack((mask, canny))[5*(h/12) : 22*(h/24), :]))
 
 
-    return img
+    return thresh1
     #return img[5*(h/12) : 22*(h/24), :]
-
-
-  def blobDetect(self, img):
-    detector = cv2.SimpleBlobDetector_create()
- 
-    # Detect blobs.
-    keypoints = detector.detect(img)
-     
-    # Draw detected blobs as red circles.
-    # cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS ensures the size of the circle corresponds to the size of blob
-    im_with_keypoints = cv2.drawKeypoints(img, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-    return im_with_keypoints
 
 
   def getKernel(self, kernelID):
@@ -176,8 +156,8 @@ class image_converter:
     return Kernel_dict.get(kernelID, np.zeros((5,5), dtype=np.float32))
 
 def main(args):
-  rospy.init_node('HaarEdges_node', anonymous=True)
-  rospy.loginfo("HaarEdges_node")
+  rospy.init_node('HaarEdges_node_v2', anonymous=True)
+  rospy.loginfo("HaarEdges_node_v2")
   rospy.logwarn("Remeber to change the margin in HaarEdges node")
   edge_det = image_converter()
   
