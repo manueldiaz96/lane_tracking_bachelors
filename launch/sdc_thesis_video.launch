@@ -9,19 +9,7 @@
 
  	<!--<node pkg="rosbag" type="play" name="video_player" args="/home/jose/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l"/>-->
 
-  <node name="haar_edge_detector_v2" pkg="self_driving_car_thesis" type="HaarEdges_v2.py">  </node>
-
-  <node name="roi_finder" pkg="self_driving_car_thesis" type="Roi_finder.py">  </node>
-
-  <!--<node name="point_extractor" pkg="self_driving_car_thesis" type="point_extractor.py">  </node>-->
-
-  <!--<node name="spline_node" pkg="self_driving_car_thesis" type="Splines.py">  </node>-->
-
-  <!--<node name="edge_detector" pkg="self_driving_car_thesis" type="Edges.py">
-  </node>
-  
-  <node name="lines_detector" pkg="self_driving_car_thesis" type="Lines.py">
-  </node> -->
-  
+  <!--<node name="lane_model" pkg="self_driving_car_thesis" type="lane_model.py">  </node>-->
+ 
   
 </launch>

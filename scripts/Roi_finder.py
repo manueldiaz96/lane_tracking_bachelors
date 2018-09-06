@@ -27,16 +27,16 @@ class image_converter:
 
     cv_image= self.detect_lines(cv_image)
 
-    # is_bgr = len(cv_image.shape) == 3
+    #is_bgr = len(cv_image.shape) == 3
 
-    # if True:
-    #   try:
-    #     if is_bgr:
-    #       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-    #     else:
-    #       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
-    #   except CvBridgeError as e:
-    #     print(e)
+    #if True:
+    #  try:
+    #    if is_bgr:
+    #      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+    #    else:
+    #      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
+    #  except CvBridgeError as e:
+    #    print(e)
 
 
 
@@ -139,15 +139,19 @@ class image_converter:
         xl_bottom = np.int((h-bl)/ml)
         xr_bottom = np.int((h-br)/mr)
 
-        poly_points = [[int(x_horizon)-50, int(y_horizon)],[int(x_horizon)+50,int(y_horizon)],[xr_bottom+150, h-1], [xl_bottom-150, h-1]]
-        #points         top-left                            top-right                          bottom-right          bottom-left
+        vert_margin = rospy.get_param('/vert_margin')
+
+        poly_points = [[int(x_horizon)-50, int(y_horizon) + vert_margin],[int(x_horizon)+50,int(y_horizon) + vert_margin],[xr_bottom+150, h-1 + vert_margin], [xl_bottom-150, h-1 + vert_margin]]
+        #points         top-left(0)                                       top-right(1)                                     bottom-right(2)                     bottom-left(3)
 
 
         rospy.set_param('/roi_points', poly_points)
 
-        # cv2.line(img, (poly_points[1][0],poly_points[1][1]), (poly_points[2][0],poly_points[2][1]), [0, 0, 123], 3)
-        # cv2.line(img, (poly_points[1][0],poly_points[1][1]), (poly_points[0][0],poly_points[0][1]), [0, 0, 123], 3)
-        # cv2.line(img, (poly_points[2][0],poly_points[2][1]), (poly_points[3][0],poly_points[3][1]), [0, 0, 123], 3)
+        #cv2.line(img, (poly_points[0][0],poly_points[0][1]), (poly_points[1][0],poly_points[1][1]), [0, 0, 123], 3)
+        #cv2.line(img, (poly_points[1][0],poly_points[1][1]), (poly_points[2][0],poly_points[2][1]), [0, 0, 123], 3)
+        #cv2.line(img, (poly_points[2][0],poly_points[2][1]), (poly_points[3][0],poly_points[3][1]), [0, 0, 123], 3)
+        #cv2.line(img, (poly_points[3][0],poly_points[3][1]), (poly_points[0][0],poly_points[0][1]), [0, 0, 123], 3)
+        
 
     
     return img
