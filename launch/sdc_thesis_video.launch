@@ -3,13 +3,17 @@
   <rosparam param="leftLine">[0, 0]</rosparam>
   <rosparam param="rightLine">[0, 0]</rosparam>
   <rosparam param="horizon_line">0</rosparam>
-  <rosparam param="roi_points">[[0,0],[0,0],[0,0],[0,0]]</rosparam>
+  <rosparam param="polyfit_k1">[[0,0,0],[0,0,0]]</rosparam>
+  <rosparam param="polyfit_k2">[[0,0,0],[0,0,0]]</rosparam>
+  <rosparam param="polyfit_k3">[[0,0,0],[0,0,0]]</rosparam>
 
-  <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l -r 1"/>
+  <!-- <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l -r 1"/> -->
+
+  <node pkg="rosbag" type="play" name="video_player" args="/home/manuel/catkin_ws/bagfiles/curvas_dataset/curvas_data.bag -l -r 0.3"/>
 
  	<!--<node pkg="rosbag" type="play" name="video_player" args="/home/jose/catkin_ws/bagfiles/Cali-Palmira-dataset/Carril-Demarcado/caliPalmiraDos_1.bag -l"/>-->
 
-  <!--<node name="lane_model" pkg="self_driving_car_thesis" type="lane_model.py">  </node>-->
+  <!-- <node name="lane_model" pkg="self_driving_car_thesis" type="lane_model.py">  </node> -->
  
   
 </launch>

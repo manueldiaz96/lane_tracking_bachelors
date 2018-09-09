@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding=utf-8
 
+#Dataset curvas y duckietown gazebo
+
 from __future__ import print_function
 
 import roslib
@@ -49,13 +51,19 @@ class image_converter:
     #vert_margin = rospy.get_param('/vert_margin')
     #roi_points = rospy.get_param('/roi_points')
 
-    roi_points = [[715, 210+h_delta],[825, 210+h_delta],[1252, 400+h_delta],[371, 400+h_delta]]
+    #roi_points = [[715, 210+h_delta],[825, 210+h_delta],[1252, 400+h_delta],[371, 400+h_delta]]
+
+    roi_points2 = [[605, np.int(h/2)+80],[745, np.int(h/2)+80],[1202, h-50],[200, h-50]]
 
     #print(np.mean(roi_points))
 
       # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
-    rect = np.array(roi_points, dtype="float32")
+    # for point in roi_points2:
+    #   #print(point)
+    #   cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
+
+    rect = np.array(roi_points2, dtype="float32")
     (tl, tr, br, bl) = rect
 
     widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
@@ -81,7 +89,7 @@ class image_converter:
 
     final, curv_rad, dst_from_center, prueba = self.visualLane(img, pts, pts_raw, pts_center, M)
     
-    return final
+    return thresh1
 
 
   def findLanes(self, top_down):
@@ -199,23 +207,18 @@ class image_converter:
     # plot on original image
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(image).astype(np.uint8)
-    center_line_img = np.zeros_like(image).astype(np.uint8)
 
     # Draw the lane onto the warped blank image
     cv2.fillPoly(warp_zero, pts, (0,255, 0))
 
     for indx in xrange(pts_center.shape[1]):
       x, y = (pts_center[0,indx], pts_center[1,indx])
-      #print(pts_center[indx-1,0], pts_center[indx-1,1])
-      #cv2.circle(center_line_img, (x,y), 5, (0,0,255), -1)
       cv2.circle(warp_zero, (x,y), 5, (0,0,255), -1)
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     newwarp = cv2.warpPerspective(warp_zero, np.linalg.inv(perspective_M), (image.shape[1], image.shape[0]))
-    center_line_img = cv2.warpPerspective(center_line_img, np.linalg.inv(perspective_M), (image.shape[1], image.shape[0])) 
     # Combine the result with the original image
     result = cv2.addWeighted(image, 1, newwarp, 0.3, 0)
-    result = cv2.addWeighted(result, 1, center_line_img, 0.5, 0)
 
     # Define conversions in x and y from pixels space to meters
     ym_per_pix = 30./720 # meters per pixel in y dimension
@@ -243,8 +246,8 @@ class image_converter:
     str2 = "Radius of Curvature: {:2.2f} km".format((left_curverad+right_curverad)/2000.)
     curv_rad = (left_curverad+right_curverad)/2000.
     dst_from_center = car_center-lane_center
-    #cv2.putText(result,str1,(430,630), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))  
-    #cv2.putText(result,str2,(430,660), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))    
+    cv2.putText(result,str1,(430,630), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))  
+    cv2.putText(result,str2,(430,660), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))    
     return result, curv_rad, dst_from_center, warp_zero
 
 
