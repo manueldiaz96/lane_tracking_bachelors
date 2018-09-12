@@ -59,6 +59,10 @@ class image_converter:
 
     left_mask = cv2.filter2D(mask, ddepth, kernel)
 
+    thr = np.int(np.mean(left_mask[:,left_mask.shape[0]:]))+25
+
+    _, left_mask = cv2.threshold(left_mask,thr,255,cv2.THRESH_BINARY)
+
     #kernel =np.array([[1,0,0],[0,1,0],[0,0,1]],dtype=np.float32)
     kernel = np.kron(self.getKernel("diag_Right"),np.ones((kernelFactor,kernelFactor)))
 
@@ -66,17 +70,19 @@ class image_converter:
 
     right_mask = cv2.filter2D(mask, ddepth, kernel)
 
+    thr = np.int(np.mean(right_mask[:,right_mask.shape[0]:]))+15
+
+    _, right_mask = cv2.threshold(right_mask,thr,255,cv2.THRESH_BINARY)
+
     hor_margin = 135
 
     rospy.set_param('/hor_margin', hor_margin)
 
     mask = np.hstack((left_mask[: ,0:(w/2)+hor_margin], right_mask[:,(w/2)+hor_margin : w]))
 
-    thr = np.int(np.mean(mask[:,mask.shape[0]:]))+25
+    # thr = np.int(np.mean(mask[:,mask.shape[0]:]))+20
 
-    _ ,thresh1 = cv2.threshold(mask,thr,255,cv2.THRESH_BINARY)
-
-    canny = cv2.Canny(thresh1,100,255,apertureSize = 3)
+    # _ ,thresh1 = cv2.threshold(mask,thr,255,cv2.THRESH_BINARY)
 
     img[:, :5] = 0 
     img[:, w-5:] = 0
@@ -86,7 +92,7 @@ class image_converter:
     #img = np.vstack((np.hstack((otsu_th, th3))[5*(h/12) : 22*(h/24), :],np.hstack((mask, canny))[5*(h/12) : 22*(h/24), :]))
 
 
-    return thresh1
+    return mask
     #return img[5*(h/12) : 22*(h/24), :]
 
 

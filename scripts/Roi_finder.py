@@ -17,7 +17,11 @@ class image_converter:
   def __init__(self):
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/Haar_edges/image",Image,self.callback)
-    #self.image_pub = rospy.Publisher("/line_detector/image_lines",Image, queue_size = 2)
+    self.image_pub = rospy.Publisher("/ROI/ROI_lines",Image, queue_size = 2)
+    self.roi_points = np.array([[0,0],[0,0],[0,0],[0,0]], dtype=np.int)
+    self.roi_points_k2 = np.array([[0,0],[0,0],[0,0],[0,0]], dtype=np.int)
+    self.roi_points_k3 = np.array([[0,0],[0,0],[0,0],[0,0]], dtype=np.int)
+    self.horizon_line = np.zeros((10,), dtype=np.int)
 
   def callback(self,data):
     try:
@@ -27,16 +31,16 @@ class image_converter:
 
     cv_image= self.detect_lines(cv_image)
 
-    #is_bgr = len(cv_image.shape) == 3
+    is_bgr = len(cv_image.shape) == 3
 
-    #if True:
-    #  try:
-    #    if is_bgr:
-    #      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-    #    else:
-    #      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
-    #  except CvBridgeError as e:
-    #    print(e)
+    if True:
+     try:
+       if is_bgr:
+         self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+       else:
+         self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
+     except CvBridgeError as e:
+       print(e)
 
 
 
@@ -134,24 +138,44 @@ class image_converter:
         x_horizon = (br - bl)/(ml - mr)
         y_horizon = ml*x_horizon + bl
 
-        rospy.set_param('/horizon_line', np.int(y_horizon))
+        #rospy.set_param('/horizon_line', np.int(y_horizon))
+
+        for i in xrange(1,self.horizon_line.shape[0]):
+            self.horizon_line[9-i] = self.horizon_line[8-i]
+
+        self.horizon_line[0] = y_horizon
+
+        y_horizon = np.mean(self.horizon_line)
 
         xl_bottom = np.int((h-bl)/ml)
         xr_bottom = np.int((h-br)/mr)
 
-        vert_margin = rospy.get_param('/vert_margin')
+        vert_margin = 0 #rospy.get_param('/vert_margin')
 
-        poly_points = [[int(x_horizon)-50, int(y_horizon) + vert_margin],[int(x_horizon)+50,int(y_horizon) + vert_margin],[xr_bottom+150, h-1 + vert_margin], [xl_bottom-150, h-1 + vert_margin]]
+        poly_points = [[int(x_horizon)-50, int(y_horizon) +50 + vert_margin],[int(x_horizon)+50,int(y_horizon) +50 + vert_margin],[xr_bottom+50, h-1  + vert_margin], [xl_bottom-50, h-1  + vert_margin]]
         #points         top-left(0)                                       top-right(1)                                     bottom-right(2)                     bottom-left(3)
-
-
         rospy.set_param('/roi_points', poly_points)
+        poly_points = np.array(poly_points, dtype=np.int)
 
-        #cv2.line(img, (poly_points[0][0],poly_points[0][1]), (poly_points[1][0],poly_points[1][1]), [0, 0, 123], 3)
-        #cv2.line(img, (poly_points[1][0],poly_points[1][1]), (poly_points[2][0],poly_points[2][1]), [0, 0, 123], 3)
-        #cv2.line(img, (poly_points[2][0],poly_points[2][1]), (poly_points[3][0],poly_points[3][1]), [0, 0, 123], 3)
-        #cv2.line(img, (poly_points[3][0],poly_points[3][1]), (poly_points[0][0],poly_points[0][1]), [0, 0, 123], 3)
-        
+        self.roi_points_k3 = self.roi_points_k2
+        self.roi_points_k2 = self.roi_points
+        self.roi_points = poly_points
+        self.roi_points = np.mean((self.roi_points_k3, self.roi_points_k2, self.roi_points), axis =0).astype(np.int)
+        img2 = img.copy()
+
+
+        cv2.line(img, (poly_points[0][0],poly_points[0][1]), (poly_points[1][0],poly_points[1][1]), [0, 0, 123], 3)
+        cv2.line(img, (poly_points[1][0],poly_points[1][1]), (poly_points[2][0],poly_points[2][1]), [0, 0, 123], 3)
+        cv2.line(img, (poly_points[2][0],poly_points[2][1]), (poly_points[3][0],poly_points[3][1]), [0, 0, 123], 3)
+        cv2.line(img, (poly_points[3][0],poly_points[3][1]), (poly_points[0][0],poly_points[0][1]), [0, 0, 123], 3)
+
+        cv2.line(img2, (self.roi_points[0][0],self.roi_points[0][1]), (self.roi_points[1][0],self.roi_points[1][1]), [0, 0, 123], 3)
+        cv2.line(img2, (self.roi_points[1][0],self.roi_points[1][1]), (self.roi_points[2][0],self.roi_points[2][1]), [0, 0, 123], 3)
+        cv2.line(img2, (self.roi_points[2][0],self.roi_points[2][1]), (self.roi_points[3][0],self.roi_points[3][1]), [0, 0, 123], 3)
+        cv2.line(img2, (self.roi_points[3][0],self.roi_points[3][1]), (self.roi_points[0][0],self.roi_points[0][1]), [0, 0, 123], 3)
+
+
+        img = np.vstack((img,img2))
 
     
     return img

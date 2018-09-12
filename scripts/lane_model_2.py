@@ -16,10 +16,19 @@ from cv_bridge import CvBridge, CvBridgeError
 
 class image_converter:
 
-  def __init__(self):
+  def __init__(self, roi_option):
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback)
     self.image_pub = rospy.Publisher("/lane_model/points",Image, queue_size = 2)
+
+    if roi_option == 1:
+        self.roi_points = [[600, 530],[800, 530],[1152, 700],[300, 700]]
+    elif roi_option == 2:
+        self.roi_points = [[705, 510],[835, 510],[1260, 700],[390, 700]]
+    else:
+        self.roi_points = [[605-20, 360+100],[745+20, 360+100],[1202, 720-50],[200, 720-50]]
+
+    #self.roi_points
 
   def callback(self,data):
     try:
@@ -48,22 +57,15 @@ class image_converter:
 
     h_delta = 5*(h/12)
 
-    #vert_margin = rospy.get_param('/vert_margin')
-    #roi_points = rospy.get_param('/roi_points')
+    roi_points = self.roi_points 
 
-    #roi_points = [[715, 210+h_delta],[825, 210+h_delta],[1252, 400+h_delta],[371, 400+h_delta]]
-
-    roi_points2 = [[605-20, np.int(h/2)+100],[745+20, np.int(h/2)+100],[1202, h-50],[200, h-50]]
-
-    #print(np.mean(roi_points))
-
-      # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
-
-    # for point in roi_points2:
+    # for point in roi_points:
     #   #print(point)
     #   cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
 
-    rect = np.array(roi_points2, dtype="float32")
+    # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
+
+    rect = np.array(roi_points, dtype="float32")
     (tl, tr, br, bl) = rect
 
     widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
@@ -127,7 +129,7 @@ class image_converter:
     # Identify the x and y positions of all nonzero pixels in the image
     nonzero = binary_warped.nonzero()
 
-    use_past_polyfit = (nonzero[0].shape[0]>0.3*top_down.shape[0]*top_down.shape[1])
+    use_past_polyfit = (nonzero[0].shape[0]>0.1*top_down.shape[0]*top_down.shape[1])
 
     if not use_past_polyfit:
         nonzeroy = np.array(nonzero[0])
@@ -241,9 +243,9 @@ class image_converter:
     # Draw the lane onto the warped blank image
     cv2.fillPoly(warp_zero, pts, (0,255, 0))
 
-    for indx in xrange(pts_center.shape[1]):
-      x, y = (pts_center[0,indx], pts_center[1,indx])
-      cv2.circle(warp_zero, (x,y), 5, (0,0,255), -1)
+    # for indx in xrange(pts_center.shape[1]):
+    #   x, y = (pts_center[0,indx], pts_center[1,indx])
+    #   cv2.circle(warp_zero, (x,y), 5, (0,0,255), -1)
 
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     newwarp = cv2.warpPerspective(warp_zero, np.linalg.inv(perspective_M), (image.shape[1], image.shape[0]))
@@ -284,8 +286,10 @@ class image_converter:
 
 def main(args):
   rospy.init_node('lane_model', anonymous=True)
+  roi_option = rospy.get_param('/vid')
   rospy.loginfo("Lane Model on")
-  ic = image_converter()
+  
+  ic = image_converter(roi_option)
   
   try:
     rospy.spin()
