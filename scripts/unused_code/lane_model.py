@@ -16,19 +16,13 @@ from cv_bridge import CvBridge, CvBridgeError
 
 class image_converter:
 
-  def __init__(self, roi_option):
+  def __init__(self):
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback)
     self.image_pub = rospy.Publisher("/lane_model/points",Image, queue_size = 2)
-
-    if roi_option == 1:
-        self.roi_points = [[600, 530],[800, 530],[1152, 700],[300, 700]]
-    elif roi_option == 2:
-        self.roi_points = [[705, 510],[835, 510],[1260, 700],[390, 700]]
-    else:
-        self.roi_points = [[605-20, 360+100],[745+20, 360+100],[1202, 720-50],[200, 720-50]]
-
-    #self.roi_points
+    self.left_fit = np.zeros((3,3), dtype=np.double)
+    self.right_fit = np.zeros((3,3), dtype=np.double)
+    self.pts_raw = 0
 
   def callback(self,data):
     try:
@@ -40,13 +34,13 @@ class image_converter:
 
     is_bgr = len(cv_image.shape) == 3
 
-    if True:
-      try:
+    
+    try:
         if is_bgr:
-          self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
         else:
-          self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
-      except CvBridgeError as e:
+            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "mono8"))
+    except CvBridgeError as e:
         print(e)
 
 
@@ -57,13 +51,22 @@ class image_converter:
 
     h_delta = 5*(h/12)
 
-    roi_points = self.roi_points 
+    #vert_margin = rospy.get_param('/vert_margin')
+    #roi_points = rospy.get_param('/roi_points')
+
+    #roi_points = [[715, 210+h_delta],[825, 210+h_delta],[1252, 400+h_delta],[371, 400+h_delta]] ## CALI-PALMIRA-DOS
+
+    roi_points = [[600, 230+h_delta],[800, 230+h_delta],[1152, 400+h_delta],[300, 400+h_delta]] ## CALI-PALMIRA
+
+    #roi_points = [[605-20, np.int(h/2)+100],[745+20, np.int(h/2)+100],[1202, h-50],[200, h-50]] ## VIDEO CURVAS
+
+    #print(np.mean(roi_points))
+
+      # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
     # for point in roi_points:
     #   #print(point)
     #   cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
-
-    # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
     rect = np.array(roi_points, dtype="float32")
     (tl, tr, br, bl) = rect
@@ -190,23 +193,26 @@ class image_converter:
         # Fit a second order polynomial to each
         left_fit = np.polyfit(lefty, leftx, 2)
         right_fit = np.polyfit(righty, rightx, 2)
+        
+        self.pts_raw = pts_raw
 
-        rospy.set_param('/polyfit_k3', rospy.get_param('/polyfit_k2'))
-        rospy.set_param('/polyfit_k2', rospy.get_param('/polyfit_k1'))
-        rospy.set_param('/polyfit_k1', [left_fit.tolist(), right_fit.tolist()])
+        self.left_fit[2,:] = self.left_fit[1,:]
+        self.left_fit[1,:] = self.left_fit[0,:]
+        self.left_fit[0,:] = left_fit
+        
+        self.right_fit[2,:] = self.right_fit[1,:]
+        self.right_fit[1,:] = self.right_fit[0,:]
+        self.right_fit[0,:] = right_fit
         #rospy.set_param('/pts_raw', [leftx.tolist(), lefty.tolist(), rightx.tolist(), righty.tolist()])
 
 
     else:
-        left_fit_k1, right_fit_k1 = np.array((rospy.get_param('/polyfit_k1')))
-        left_fit_k2, right_fit_k2 = np.array((rospy.get_param('/polyfit_k2')))
-        left_fit_k3, right_fit_k3 = np.array((rospy.get_param('/polyfit_k3')))
-
-        left_fit = np.mean((left_fit_k1,left_fit_k2,left_fit_k3), axis=0)
-        right_fit = np.mean((right_fit_k1,right_fit_k2,right_fit_k3), axis=0)
+        
+        left_fit = np.mean(self.left_fit, axis=0)
+        right_fit = np.mean(self.right_fit, axis=0)
 
         #pts_raw = [leftx, lefty, rightx, righty]
-        pts_raw = 0
+        pts_raw = self.pts_raw
 
 
     # Generate x and y values for plotting
@@ -286,10 +292,8 @@ class image_converter:
 
 def main(args):
   rospy.init_node('lane_model', anonymous=True)
-  roi_option = rospy.get_param('/vid')
   rospy.loginfo("Lane Model on")
-  
-  ic = image_converter(roi_option)
+  ic = image_converter()
   
   try:
     rospy.spin()

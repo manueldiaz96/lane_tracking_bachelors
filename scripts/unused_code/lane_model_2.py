@@ -2,6 +2,7 @@
 # coding=utf-8
 
 #Dataset curvas y duckietown gazebo
+#Histograma de 3 bins y media del último bin
 
 from __future__ import print_function
 
@@ -16,13 +17,33 @@ from cv_bridge import CvBridge, CvBridgeError
 
 class image_converter:
 
-  def __init__(self):
+  def __init__(self, roi_option):
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback)
-    self.image_pub = rospy.Publisher("/lane_model/points",Image, queue_size = 2)
+    self.image_pub = rospy.Publisher("/lane_model/lane",Image, queue_size = 2)
+
     self.left_fit = np.zeros((3,3), dtype=np.double)
     self.right_fit = np.zeros((3,3), dtype=np.double)
-    self.pts_raw = 0
+    self.pts_raw = [0,0,0,0]
+
+    self.kernel = np.array([[0,0,1,1,1,0,0],[0,0,1,1,1,0,0],[0,0,1,1,1,0,0],[0,0,1,1,1,0,0]], dtype=np.float32)
+    kernel_mult = 10
+    self.kernel = np.kron(self.kernel,np.ones((kernel_mult, kernel_mult)))
+    self.kernel /= (self.kernel.shape[0]*self.kernel.shape[1])/2.5
+
+    if roi_option == 1:
+        self.roi_points = [[600, 530],[800, 530],[1152, 700],[300, 700]]
+    elif roi_option == 2:
+        self.roi_points = [[645, 540],[925, 540],[1260, 700],[390, 700]]
+    else:
+        self.roi_points = [[605-60, 360+100],[745+50, 360+100],[1202, 720-50],[200, 720-50]]
+
+    self.rfit_k1 = [0,0,0]
+    self.lfit_k1 = [0,0,0]
+
+    #self.last_rvals = []
+    #self.last_lvals = 0
+
 
   def callback(self,data):
     try:
@@ -49,26 +70,13 @@ class image_converter:
 
     h, w, _ = img.shape
 
-    h_delta = 5*(h/12)
-
-    print(h/2)
-
-    #vert_margin = rospy.get_param('/vert_margin')
-    #roi_points = rospy.get_param('/roi_points')
-
-    #roi_points = [[715, 210+h_delta],[825, 210+h_delta],[1252, 400+h_delta],[371, 400+h_delta]] ## CALI-PALMIRA-DOS
-
-    roi_points = [[600, 230+h_delta],[800, 230+h_delta],[1152, 400+h_delta],[300, 400+h_delta]] ## CALI-PALMIRA
-
-    #roi_points = [[605-20, np.int(h/2)+100],[745+20, np.int(h/2)+100],[1202, h-50],[200, h-50]] ## VIDEO CURVAS
-
-    #print(np.mean(roi_points))
-
-      # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
+    roi_points = self.roi_points 
 
     # for point in roi_points:
     #   #print(point)
     #   cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
+
+    # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
     rect = np.array(roi_points, dtype="float32")
     (tl, tr, br, bl) = rect
@@ -88,23 +96,49 @@ class image_converter:
 
     warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
-    thr = np.int(np.mean(warped)) + 30
+    warped = cv2.filter2D(warped, -1, self.kernel)
 
-    _ ,thresh1 = cv2.threshold(warped,thr,255,cv2.THRESH_BINARY)
+    thresh1 = np.zeros_like(warped, dtype=np.uint8)
 
-    #warped = cv2.Sobel(thresh1,cv2.CV_64F,1,0,ksize=5)
+    thresh1 = np.vstack((thresh1,thresh1))
 
-    thr = np.int(np.mean(warped)) + 20
+    thresh1[:,:(warped.shape[1]/2)] = self.Threshold(warped[:,:warped.shape[1]/2])
 
-    _ ,thresh1 = cv2.threshold(warped,thr,255,cv2.THRESH_BINARY)
+    thresh1[:,(warped.shape[1]/2):] = self.Threshold(warped[:,warped.shape[1]/2:])
 
-    pts, pts_raw, pts_center, thresh1 = self.findLanes(thresh1)
+    #pts, pts_raw, pts_center, _ = self.findLanes(thresh1)
 
     #final, curv_rad, dst_from_center, prueba = self.visualLane(img, pts, pts_raw, pts_center, M)
-
-    final = self.visualLane(img, pts, pts_raw, pts_center, M)
     
-    return final
+    return thresh1
+
+
+  def Threshold(self, gray_img):
+
+    gray_img = cv2.blur(cv2.equalizeHist(gray_img),(5,5))
+
+
+
+    #print(np.mean(gray_img))
+
+    _ ,thresh1 = cv2.threshold(gray_img,245,255,cv2.THRESH_BINARY)
+
+    img = np.vstack((thresh1,gray_img))
+
+    h, w = img.shape
+
+    #cv2.line(img,(np.int(w/5),0),(np.int(w/5),h-1),(255),5)
+    #cv2.line(img,(2*np.int(w/5),0),(2*np.int(w/5),h-1),(255),5)
+    #cv2.line(img,(3*np.int(w/5),0),(3*np.int(w/5),h-1),(255),5)
+    #cv2.line(img,(4*np.int(w/5),0),(4*np.int(w/5),h-1),(255),5)
+    # cv2.line(img,(5*np.int(w/10),0),(5*np.int(w/10),h-1),(255),5)
+    # cv2.line(img,(6*np.int(w/10),0),(6*np.int(w/10),h-1),(255),5)
+    # cv2.line(img,(7*np.int(w/10),0),(7*np.int(w/10),h-1),(255),5)
+    # cv2.line(img,(8*np.int(w/10),0),(8*np.int(w/10),h-1),(255),5)
+    # cv2.line(img,(9*np.int(w/10),0),(9*np.int(w/10),h-1),(255),5)
+
+    return img
+
 
 
   def findLanes(self, top_down):
@@ -134,7 +168,7 @@ class image_converter:
     # Identify the x and y positions of all nonzero pixels in the image
     nonzero = binary_warped.nonzero()
 
-    use_past_polyfit = (nonzero[0].shape[0]>0.1*top_down.shape[0]*top_down.shape[1])
+    use_past_polyfit = (nonzero[0].shape[0]>1*top_down.shape[0]*top_down.shape[1])
 
     if not use_past_polyfit:
         nonzeroy = np.array(nonzero[0])
@@ -145,7 +179,7 @@ class image_converter:
         # Set the width of the windows +/- margin
         margin = 100
         # Set minimum number of pixels found to recenter window
-        minpix = 50
+        minpix = 25
         # Create empty lists to receive left and right lane pixel indices
         left_lane_inds = []
         right_lane_inds = []
@@ -187,15 +221,26 @@ class image_converter:
         lefty = nonzeroy[left_lane_inds] 
         rightx = nonzerox[right_lane_inds]
         righty = nonzeroy[right_lane_inds] 
-        pts_raw = [leftx, lefty, rightx, righty]
+        
 
-        out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
-        out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
+        out_img[lefty, leftx] = [255, 0, 0]
+        out_img[righty, rightx] = [0, 0, 255]
 
         # Fit a second order polynomial to each
-        left_fit = np.polyfit(lefty, leftx, 2)
+        if len(rightx) < 200:
+            self.rfit_k1 = [righty,rightx]
+        else:
+            righty,rightx = self.rfit_k1
+
+        if len(leftx) < 200:
+            self.lfit_k1 = [lefty,leftx]
+        else:
+            lefty,leftx = self.lfit_k1
+
+        pts_raw = [leftx, lefty, rightx, righty]
         right_fit = np.polyfit(righty, rightx, 2)
-        
+        left_fit = np.polyfit(lefty, leftx, 2)
+
         self.pts_raw = pts_raw
 
         self.left_fit[2,:] = self.left_fit[1,:]
@@ -209,14 +254,12 @@ class image_converter:
 
 
     else:
-        
-        left_fit = np.mean(self.left_fit, axis=0)
-        right_fit = np.mean(self.right_fit, axis=0)
-
         #pts_raw = [leftx, lefty, rightx, righty]
-        pts_raw = 0
+        pts_raw = self.pts_raw
 
 
+    left_fit = np.mean(self.left_fit, axis=0)
+    right_fit = np.mean(self.right_fit, axis=0)
     # Generate x and y values for plotting
     ploty = np.linspace(0, top_down.shape[0]-1, top_down.shape[0] )
     left_fitx = self.evalPoly(left_fit, ploty)
@@ -250,6 +293,10 @@ class image_converter:
 
     # Draw the lane onto the warped blank image
     cv2.fillPoly(warp_zero, pts, (0,255, 0))
+    #leftx, lefty, rightx, righty = pts_raw
+
+    #warp_zero[lefty, leftx] = [255, 0, 0]
+    #warp_zero[righty, rightx] = [255, 0, 0]
 
     # for indx in xrange(pts_center.shape[1]):
     #   x, y = (pts_center[0,indx], pts_center[1,indx])
@@ -258,44 +305,47 @@ class image_converter:
     # Warp the blank back to original image space using inverse perspective matrix (Minv)
     newwarp = cv2.warpPerspective(warp_zero, np.linalg.inv(perspective_M), (image.shape[1], image.shape[0]))
     # Combine the result with the original image
-    result = cv2.addWeighted(image, 1, newwarp, 0.5, 0)
+    result = cv2.addWeighted(image, 0.5, newwarp, 1, 0)
 
     # Define conversions in x and y from pixels space to meters
-    # ym_per_pix = 30./720 # meters per pixel in y dimension
-    # xm_per_pix = 3.7/700 # meters per pixel in x dimension
+    ym_per_pix = 30./720 # meters per pixel in y dimension
+    xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
-    # # Fit new polynomials to x,y in world space
-    # ymax = float(image.shape[0])
-    # y_eval = ymax
-    # leftx = pts_raw[0]
-    # lefty = pts_raw[1]
-    # rightx = pts_raw[2]
-    # righty = pts_raw[3]
-    # left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
-    # right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
-    # # Calculate the new radii of curvature
-    # left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
-    # right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
-    # # Now our radius of curvature is in meters
-    # # print(left_curverad, 'm', right_curverad, 'm')
+    # Fit new polynomials to x,y in world space
+    ymax = float(image.shape[0])
+    y_eval = ymax
+    leftx = pts_raw[0]
+    lefty = pts_raw[1]
+    rightx = pts_raw[2]
+    righty = pts_raw[3]
+    left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
+    right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
+    # Calculate the new radii of curvature
+    left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+    right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+    # Now our radius of curvature is in meters
+    # print(left_curverad, 'm', right_curverad, 'm')
 
-    # # print distance from center and radius on the image
-    # lane_center = (self.evalPoly(left_fit_cr, ymax*ym_per_pix) + self.evalPoly(right_fit_cr, ymax*ym_per_pix))/2.0
-    # car_center = image.shape[1]*xm_per_pix/2.0
-    # str1 = "Distance from center: {:2.2f} m".format(car_center-lane_center)
-    # str2 = "Radius of Curvature: {:2.2f} km".format((left_curverad+right_curverad)/2000.)
-    # curv_rad = (left_curverad+right_curverad)/2000.
-    # dst_from_center = car_center-lane_center
-    # cv2.putText(result,str1,(430,630), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))  
-    # cv2.putText(result,str2,(430,660), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))    
-    # return result, curv_rad, dst_from_center, warp_zero
-    return result
+    # print distance from center and radius on the image
+    lane_center = (self.evalPoly(left_fit_cr, ymax*ym_per_pix) + self.evalPoly(right_fit_cr, ymax*ym_per_pix))/2.0
+    car_center = image.shape[1]*xm_per_pix/2.0
+    str1 = "Distance from center: {:2.2f} m".format(car_center-lane_center)
+    str2 = "Radius of Curvature: {:2.2f} km".format((left_curverad+right_curverad)/2000.)
+    curv_rad = (left_curverad+right_curverad)/2000.
+    dst_from_center = car_center-lane_center
+    cv2.putText(result,str1,(430,630), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))  
+    cv2.putText(result,str2,(430,660), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))
+
+    return result, curv_rad, dst_from_center, warp_zero
+    #return result
 
 
 def main(args):
   rospy.init_node('lane_model', anonymous=True)
+  roi_option = rospy.get_param('/vid')
   rospy.loginfo("Lane Model on")
-  ic = image_converter()
+  
+  ic = image_converter(roi_option)
   
   try:
     rospy.spin()
