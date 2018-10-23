@@ -91,7 +91,7 @@ class image_converter:
     #img[:, w/2:(w/2)+1] = 255
     #img = np.vstack((np.hstack((otsu_th, th3))[5*(h/12) : 22*(h/24), :],np.hstack((mask, canny))[5*(h/12) : 22*(h/24), :]))
 
-
+    print "Done!"
     return img
     #return img[5*(h/12) : 22*(h/24), :]
 

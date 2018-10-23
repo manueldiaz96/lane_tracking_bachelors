@@ -56,9 +56,9 @@ class image_converter:
 
     #roi_points = [[715, 210+h_delta],[825, 210+h_delta],[1252, 400+h_delta],[371, 400+h_delta]] ## CALI-PALMIRA-DOS
 
-    roi_points = [[600, 230+h_delta],[800, 230+h_delta],[1152, 400+h_delta],[300, 400+h_delta]] ## CALI-PALMIRA
+    #roi_points = [[600, 230+h_delta],[800, 230+h_delta],[1152, 400+h_delta],[300, 400+h_delta]] ## CALI-PALMIRA
 
-    #roi_points = [[605-20, np.int(h/2)+100],[745+20, np.int(h/2)+100],[1202, h-50],[200, h-50]] ## VIDEO CURVAS
+    roi_points = [[605-20, np.int(h/2)+100],[745+20, np.int(h/2)+100],[1202, h-50],[200, h-50]] ## VIDEO CURVAS
 
     #print(np.mean(roi_points))
 
@@ -102,7 +102,7 @@ class image_converter:
 
     final = self.visualLane(img, pts, pts_raw, pts_center, M)
     
-    return final
+    return thresh1
 
 
   def findLanes(self, top_down):

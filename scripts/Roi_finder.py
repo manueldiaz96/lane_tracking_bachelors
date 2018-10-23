@@ -17,7 +17,7 @@ class image_converter:
   def __init__(self):
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/Haar_edges/image",Image,self.callback)
-    self.image_pub = rospy.Publisher("/ROI/ROI_lines",Image, queue_size = 2)
+    self.image_pub = rospy.Publisher("/ROI/ROI_lines",Image, queue_size = 0)
     self.roi_points = np.array([[0,0],[0,0],[0,0],[0,0]], dtype=np.int)
     self.roi_points_k2 = np.array([[0,0],[0,0],[0,0],[0,0]], dtype=np.int)
     self.roi_points_k3 = np.array([[0,0],[0,0],[0,0],[0,0]], dtype=np.int)

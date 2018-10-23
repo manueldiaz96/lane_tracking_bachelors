@@ -12,7 +12,7 @@ import rospy
 
 import cv2
 import numpy as np
-from pykalman import KalmanFilter
+from tracker import Tracker
 
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
@@ -54,17 +54,33 @@ class image_converter:
 
         for i in range(self.n_windows):
             #Create and initialize each KF
-            self.kalman_filters_right.append(KalmanFilter(transition_matrices=np.array([[1,1],[0,1]]),transition_covariance=0.01 * np.eye(2)))
-            self.kalman_filters_left.append(KalmanFilter(transition_matrices=np.array([[1,1],[0,1]]),transition_covariance=0.01 * np.eye(2)))
-        
 
+            self.kalman_filters_right.append(Tracker())
+            self.kalman_filters_left.append(Tracker())
 
+        self.filtersNotInitialized = True
+        self.lastleftx = 0
+        self.lastrightx = 0
 
     def callback(self,data):
         try:
           cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
           print(e)
+
+        if self.filtersNotInitialized:
+
+            self.filtersNotInitialized = False;
+            _, w, _ = cv_image.shape
+            val_left = 2*np.int(w/10)
+            val_right = 8*np.int(w/10)
+
+            for i in range(self.n_windows):
+                self.kalman_filters_left[i].x_state = np.array([[val_left, 0]]).T
+                self.kalman_filters_left[i].predict_only()
+                self.kalman_filters_right[i].x_state = np.array([[val_right, 0]]).T
+                self.kalman_filters_right[i].predict_only()
+
 
         cv_image= self.warp_lane(cv_image)
 
@@ -87,9 +103,9 @@ class image_converter:
 
         roi_points = self.roi_points 
 
-        # for point in roi_points:
-        #   #print(point)
-        #   cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
+        for point in roi_points:
+          #print(point)
+          cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
 
         # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
@@ -156,13 +172,13 @@ class image_converter:
         top_down[:,:np.int(w/10)] = 0
         top_down[:,3*np.int(w/10):7*np.int(w/10)] = 0
 
-        top_down[:,] = 0
-        top_down[:,8*np.int(w/10)] = 0 
+        #top_down[:,] = 0
+        #top_down[:,8*np.int(w/10)] = 0 
 
-        top_down[:,9*np.int(w/10):] = 0
+        #top_down[:,9*np.int(w/10):] = 0
 
         n_windows = self.n_windows
-        window_height = np.int(top_down.shape[0]/nwindows)
+        window_height = np.int(top_down.shape[0]/n_windows)
 
         leftx_current = 2*np.int(w/10)
         rightx_current = 8*np.int(w/10)
@@ -183,8 +199,32 @@ class image_converter:
             good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
             good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
 
-            leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
-            rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+            
+            try:
+                leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+            except ValueError as e:
+                leftx_current = self.lastleftx 
+            else:
+                self.lastleftx = leftx_current
+                
+            try:
+                rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+            except ValueError as e:
+                rightx_current = self.lastrightx 
+            else:
+                self.lastrightx = rightx_current
+
+            '''
+            x_st = [x]
+            z = np.expand_dims(x_st, axis=0).T
+            print "z:", z
+            trk.kalman_filter(z)
+            xx = trk.x_state;
+            print(xx[0,0])
+            '''
+
+
+            print("Window:", window, "leftx_current:", leftx_current, "rightx_current:", rightx_current)
 
         return top_down
 
