@@ -61,6 +61,8 @@ class image_converter:
         self.filtersNotInitialized = True
         self.lastleftx = 0
         self.lastrightx = 0
+        self.Predicted_leftx = 0
+        self.Predicted_rightx = 0
 
     def callback(self,data):
         try:
@@ -187,6 +189,10 @@ class image_converter:
         nonzerox = np.array(top_down.nonzero()[1])
 
         margin = 100
+        minpix = 50
+
+        top_down = np.dstack((top_down, top_down, top_down))
+        top_down = np.zeros_like(top_down)
 
         for window in range(n_windows):
             win_y_low = top_down.shape[0] - (window+1)*window_height
@@ -199,32 +205,54 @@ class image_converter:
             good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
             good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
 
-            
-            try:
-                leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
-            except ValueError as e:
-                leftx_current = self.lastleftx 
+            y = (win_y_high - win_y_low)/2
+            y += win_y_low
+
+            if len(good_left_inds) > minpix:
+                try:
+                    leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+                except ValueError as e:
+                    leftx_current = self.lastleftx 
+                else:
+                    self.lastleftx = leftx_current
+
+                x_st = [leftx_current]
+                z = np.expand_dims(x_st, axis=0).T
+                self.kalman_filters_left[window].kalman_filter(z)
+                xx = self.kalman_filters_left[window].x_state;
+                self.Predicted_leftx = xx[0,0]
+
             else:
-                self.lastleftx = leftx_current
+                self.kalman_filters_left[window].predict_only;
+                self.Predicted_leftx = self.kalman_filters_left[window].x_state[0,0]
                 
-            try:
-                rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
-            except ValueError as e:
-                rightx_current = self.lastrightx 
+            point = (self.Predicted_leftx, y)            
+            cv2.circle(top_down, point, 5, (0,0,255), -1)
+
+
+            if len(good_right_inds) > minpix:
+                try:
+                    rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+                except ValueError as e:
+                    rightx_current = self.lastrightx 
+                else:
+                    self.lastrightx = rightx_current
+
+                x_st = [rightx_current]
+                z = np.expand_dims(x_st, axis=0).T
+                self.kalman_filters_right[window].kalman_filter(z)
+                xx = self.kalman_filters_right[window].x_state;
+                self.Predicted_rightx = xx[0,0]
+
             else:
-                self.lastrightx = rightx_current
+                self.kalman_filters_right[window].predict_only;
+                self.Predicted_rightx = self.kalman_filters_right[window].x_state[0,0]
 
-            '''
-            x_st = [x]
-            z = np.expand_dims(x_st, axis=0).T
-            print "z:", z
-            trk.kalman_filter(z)
-            xx = trk.x_state;
-            print(xx[0,0])
-            '''
+            point = (self.Predicted_rightx, y)            
+            cv2.circle(top_down, point, 5, (0,0,255), -1)
+            
 
-
-            print("Window:", window, "leftx_current:", leftx_current, "rightx_current:", rightx_current)
+            #print("Window:", window, "leftx_current:", leftx_current-self.Predicted_leftx, "rightx_current:", rightx_current-self.Predicted_rightx)
 
         return top_down
 
@@ -302,7 +330,7 @@ def main(args):
     try:
         rospy.spin()
     except KeyboardInterrupt:
-        print("Shutting down")
+        rospy.loginfo("Shutting down")
   
 
 if __name__ == '__main__':

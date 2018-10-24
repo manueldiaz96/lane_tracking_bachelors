@@ -65,7 +65,6 @@ class Tracker(): # seguidor basado en Kalman Filter
 
         #Update
         S = dot(self.H, self.P).dot(self.H.T) + self.R
-        print(S.shape)
         K = dot(self.P, self.H.T).dot(inv(S)) # Kalman gain
         y = z - dot(self.H, x) # residual
         x += dot(K, y)
