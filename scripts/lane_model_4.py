@@ -47,7 +47,7 @@ class image_converter:
             self.roi_points = [[605-60, 360+100],[745+50, 360+100],[1202, 720-50],[200, 720-50]]
 
         #Define how many search windows are going to be used
-        self.n_windows = 10
+        self.n_windows = 15
         #And how many kalman filters are going to be used, which is n_windows per line
         self.kalman_filters_left = []
         self.kalman_filters_right = []
@@ -132,13 +132,16 @@ class image_converter:
 
         warped = cv2.filter2D(warped, -1, self.kernel)
 
+        
         thresh1 = np.zeros_like(warped, dtype=np.uint8)
 
         #Apply to each vertical half, a threshold based on its brightest spots
 
-        thresh1[:,:(warped.shape[1]/2)] = self.Threshold(warped[:,:warped.shape[1]/2])
+        thresh2 = np.vstack((thresh1,thresh1))
 
-        thresh1[:,(warped.shape[1]/2):] = self.Threshold(warped[:,warped.shape[1]/2:])
+        thresh2[:,:(warped.shape[1]/2)] = self.Threshold(warped[:,:warped.shape[1]/2])
+
+        thresh2[:,(warped.shape[1]/2):] = self.Threshold(warped[:,warped.shape[1]/2:])
 
         #pts, pts_raw, pts_center, _ = self.findLanes(thresh1)
 
@@ -148,16 +151,21 @@ class image_converter:
 
         final = self.paintLane(final, img, M)
 
-        return final
+        return thresh2
+
+        #return final
 
 
     def Threshold(self, gray_img):
 
         gray_img = cv2.blur(cv2.equalizeHist(gray_img),(5,5))
 
-        _ ,thresh1 = cv2.threshold(gray_img,245,250,cv2.THRESH_BINARY)
+        _ ,thresh1 = cv2.threshold(gray_img,245,255,cv2.THRESH_BINARY)
 
-        return thresh1
+        return np.vstack((gray_img,thresh1))
+
+        #return thresh1
+
 
 
 
@@ -192,13 +200,12 @@ class image_converter:
         nonzerox = np.array(top_down.nonzero()[1])
 
         margin = 100
-        minpix = 100
+        minpix = 50
 
         top_down = np.dstack((top_down, top_down, top_down))
         top_down = np.zeros_like(top_down)
 
         for window in range(n_windows):
-
             win_y_low = top_down.shape[0] - (window+1)*window_height
             win_y_high = top_down.shape[0] - window*window_height
             win_xleft_low = leftx_current - margin
@@ -223,19 +230,14 @@ class image_converter:
                 x_st = [leftx_current]
                 z = np.expand_dims(x_st, axis=0).T
                 self.kalman_filters_left[window].kalman_filter(z)
-                self.Predicted_leftx = self.kalman_filters_left[window].x_state[0,0]
-                color = (0,0,255)
+                xx = self.kalman_filters_left[window].x_state;
+                self.Predicted_leftx = xx[0,0]
 
             else:
-                if len(good_left_inds) > minpix:
-                    self.Predicted_leftx = self.Predicted_rightx - self.distances_p2p[window]
-                else:
-                    self.kalman_filters_left[window].predict_only;
-                    self.Predicted_leftx = self.kalman_filters_left[window].x_state[0,0]
-                color = (0,255,0)
+                self.Predicted_leftx = self.Predicted_rightx - self.distances_p2p[window]
                 
             point = (self.Predicted_leftx, y)            
-            cv2.circle(top_down, point, 5, color, -1)
+            cv2.circle(top_down, point, 5, (0,0,255), -1)
 
 
             if len(good_right_inds) > minpix:
@@ -249,23 +251,19 @@ class image_converter:
                 x_st = [rightx_current]
                 z = np.expand_dims(x_st, axis=0).T
                 self.kalman_filters_right[window].kalman_filter(z)
-                self.Predicted_rightx = self.kalman_filters_right[window].x_state[0,0]
-                color = (0,0,255)
+                xx = self.kalman_filters_right[window].x_state;
+                self.Predicted_rightx = xx[0,0]
 
             else:
-                if len(good_left_inds) > minpix:
-                    self.Predicted_rightx = self.Predicted_leftx + self.distances_p2p[window]
-                else:
-                    self.kalman_filters_right[window].predict_only;
-                    self.Predicted_rightx = self.kalman_filters_right[window].x_state[0,0]
-                color = (255,0,0)
+                self.Predicted_rightx = self.Predicted_leftx + self.distances_p2p[window]
 
             point = (self.Predicted_rightx, y)            
-            cv2.circle(top_down, point, 5, color, -1)
+            cv2.circle(top_down, point, 5, (0,0,255), -1)
 
 
             if len(good_right_inds) > minpix and len(good_left_inds) > minpix:
                 self.distances_p2p[window] = self.Predicted_rightx - self.Predicted_leftx
+
             
 
             #print("Window:", window, "leftx_current:", leftx_current-self.Predicted_leftx, "rightx_current:", rightx_current-self.Predicted_rightx)
@@ -279,6 +277,69 @@ class image_converter:
 
         return result
 
+
+
+    def evalPoly(self, fit_param, Y):
+        """
+        Evaluate X, based on Y of the polynomial
+        """
+        return fit_param[0]*Y**2 + fit_param[1]*Y + fit_param[2]
+
+    def visualLane(self, image, pts, pts_raw, pts_center, perspective_M):
+        """
+        Visualize the detected lane, radius, and car center shift
+        """
+        # plot on original image
+        # Create an image to draw the lines on
+        warp_zero = np.zeros_like(image).astype(np.uint8)
+
+        # Draw the lane onto the warped blank image
+        cv2.fillPoly(warp_zero, pts, (0,255, 0))
+        #leftx, lefty, rightx, righty = pts_raw
+
+        #warp_zero[lefty, leftx] = [255, 0, 0]
+        #warp_zero[righty, rightx] = [255, 0, 0]
+
+        # for indx in xrange(pts_center.shape[1]):
+        #   x, y = (pts_center[0,indx], pts_center[1,indx])
+        #   cv2.circle(warp_zero, (x,y), 5, (0,0,255), -1)
+
+        # Warp the blank back to original image space using inverse perspective matrix (Minv)
+        newwarp = cv2.warpPerspective(warp_zero, np.linalg.inv(perspective_M), (image.shape[1], image.shape[0]))
+        # Combine the result with the original image
+        result = cv2.addWeighted(image, 0.5, newwarp, 1, 0)
+
+        # Define conversions in x and y from pixels space to meters
+        ym_per_pix = 30./720 # meters per pixel in y dimension
+        xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+        # Fit new polynomials to x,y in world space
+        ymax = float(image.shape[0])
+        y_eval = ymax
+        leftx = pts_raw[0]
+        lefty = pts_raw[1]
+        rightx = pts_raw[2]
+        righty = pts_raw[3]
+        left_fit_cr = np.polyfit(lefty*ym_per_pix, leftx*xm_per_pix, 2)
+        right_fit_cr = np.polyfit(righty*ym_per_pix, rightx*xm_per_pix, 2)
+        # Calculate the new radii of curvature
+        left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+        right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+        # Now our radius of curvature is in meters
+        # print(left_curverad, 'm', right_curverad, 'm')
+
+        # print distance from center and radius on the image
+        lane_center = (self.evalPoly(left_fit_cr, ymax*ym_per_pix) + self.evalPoly(right_fit_cr, ymax*ym_per_pix))/2.0
+        car_center = image.shape[1]*xm_per_pix/2.0
+        str1 = "Distance from center: {:2.2f} m".format(car_center-lane_center)
+        str2 = "Radius of Curvature: {:2.2f} km".format((left_curverad+right_curverad)/2000.)
+        curv_rad = (left_curverad+right_curverad)/2000.
+        dst_from_center = car_center-lane_center
+        cv2.putText(result,str1,(430,630), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))  
+        cv2.putText(result,str2,(430,660), cv2.FONT_HERSHEY_DUPLEX, 1,(0,0,255))
+
+        return result, curv_rad, dst_from_center, warp_zero
+        #return result
 
 
 def main(args):
