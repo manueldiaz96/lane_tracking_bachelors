@@ -87,7 +87,11 @@ class image_converter:
                 self.kalman_filters_right[i].predict_only()
 
 
-        cv_image= self.warp_lane(cv_image)
+        cv_image = self.warp_lane(cv_image)
+
+        error = self.calculateError()
+
+        self.sendControlCommand(error)
 
         is_bgr = len(cv_image.shape) == 3
 
@@ -165,14 +169,17 @@ class image_converter:
 
         middlePoints = cv2.perspectiveTransform(middlePoints, np.linalg.inv(M)).astype(np.int)
 
-        print("----",middlePoints[:,:,:],"----")
+
+        #print("----",middlePoints[:,:,:],"----")
         #print(middlePoints[0,1,:])
 
         for point in range(middlePoints.shape[1]):
-            x, y = middlePoints[0,point,:]
-            print(x,y)
+            self.middlePoints[point] = middlePoints[0,point,:]
+            x, y = self.middlePoints[point]
+            #print(x,y)
             cv2.circle(final, (x, y), 5, (0,255,255), -1)
 
+        
 
 
         final[:,np.int(w/2)]=(255,125,0)
@@ -205,9 +212,9 @@ class image_converter:
         #print (w)
         #print (np.int(w/10), 3*np.int(w/10), 7*np.int(w/10), 9*np.int(w/10))
 
-        top_down[:,:np.int(w/10)] = 0
+        #top_down[:,:np.int(w/10)] = 0
         top_down[:,3*np.int(w/10):7*np.int(w/10)] = 0
-        top_down[:,9*np.int(w/10):] = 0
+        #top_down[:,9*np.int(w/10):] = 0
 
         #top_down[:,] = 0
         #top_down[:,8*np.int(w/10)] = 0 
@@ -324,6 +331,20 @@ class image_converter:
 
         return result
 
+    def calculateError(self):
+
+        error = 0
+
+        for point in range(self.middlePoints.shape[0]):
+            error += (1/(point+1))*self.middlePoints[point][0]
+
+        print(error)
+
+        return error
+
+    def sendControlCommand(self, error):
+
+        error = 1
 
 
 def main(args):
