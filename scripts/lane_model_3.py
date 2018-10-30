@@ -42,7 +42,7 @@ class image_converter:
         if roi_option == 1:
             self.roi_points = [[600, 530],[800, 530],[1152, 700],[300, 700]]
         elif roi_option == 2:
-            self.roi_points = [[645, 540],[925, 540],[1260, 700],[390, 700]]
+            self.roi_points = [[625, 540],[935, 540],[1300, 700],[340, 700]]
         else:
             self.roi_points = [[605-60, 360+100],[745+50, 360+100],[1202, 720-50],[200, 720-50]]
 
@@ -52,12 +52,14 @@ class image_converter:
         self.kalman_filters_left = []
         self.kalman_filters_right = []
         self.distances_p2p = []
+        self.middlePoints = []
 
         for i in range(self.n_windows):
             #Create and initialize each KF
             self.kalman_filters_right.append(Tracker())
             self.kalman_filters_left.append(Tracker())
             self.distances_p2p.append(0)
+            self.middlePoints.append(0)
 
         self.filtersNotInitialized = True
         self.lastleftx = 0
@@ -106,11 +108,22 @@ class image_converter:
 
         roi_points = self.roi_points 
 
-        #for point in roi_points:
+        '''
+
+        for point in roi_points:
           #print(point)
-          #cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
+          cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
+
+        cv2.line(img, (roi_points[0][0],roi_points[0][1]), (roi_points[1][0],roi_points[1][1]), (255,0,0), 3)
+        cv2.line(img, (roi_points[1][0],roi_points[1][1]), (roi_points[2][0],roi_points[2][1]), (255,0,0), 3)
+        cv2.line(img, (roi_points[2][0],roi_points[2][1]), (roi_points[3][0],roi_points[3][1]), (255,0,0), 3)
+        cv2.line(img, (roi_points[3][0],roi_points[3][1]), (roi_points[0][0],roi_points[0][1]), (255,0,0), 3)
+
+        return img
 
         # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
+
+        '''
 
         rect = np.array(roi_points, dtype="float32")
         (tl, tr, br, bl) = rect
@@ -139,16 +152,35 @@ class image_converter:
         thresh1[:,:(warped.shape[1]/2)] = self.Threshold(warped[:,:warped.shape[1]/2])
 
         thresh1[:,(warped.shape[1]/2):] = self.Threshold(warped[:,warped.shape[1]/2:])
-
-        #pts, pts_raw, pts_center, _ = self.findLanes(thresh1)
-
-        #final, curv_rad, dst_from_center, prueba = self.visualLane(img, pts, pts_raw, pts_center, M)
         
         final = self.findLanes(thresh1)
 
         final = self.paintLane(final, img, M)
 
+        #pts_array = np.dstack((np.array(self.middlePoints, dtype=np.float),np.array(self.middlePoints, dtype=np.float)))
+
+        #print(cv2.perspectiveTransform(pts_array, np.linalg.inv(M)))
+
+        middlePoints = np.dstack((self.middlePoints[:,0],self.middlePoints[:,1]))
+
+        middlePoints = cv2.perspectiveTransform(middlePoints, np.linalg.inv(M)).astype(np.int)
+
+        print("----",middlePoints[:,:,:],"----")
+        #print(middlePoints[0,1,:])
+
+        for point in range(middlePoints.shape[1]):
+            x, y = middlePoints[0,point,:]
+            print(x,y)
+            cv2.circle(final, (x, y), 5, (0,255,255), -1)
+
+
+
+        final[:,np.int(w/2)]=(255,125,0)
+
+        #return thresh1
         return final
+
+        #'''
 
 
     def Threshold(self, gray_img):
@@ -158,8 +190,7 @@ class image_converter:
         _ ,thresh1 = cv2.threshold(gray_img,245,250,cv2.THRESH_BINARY)
 
         return thresh1
-
-
+        #return gray_img
 
     def findLanes(self, top_down):
 
@@ -176,11 +207,12 @@ class image_converter:
 
         top_down[:,:np.int(w/10)] = 0
         top_down[:,3*np.int(w/10):7*np.int(w/10)] = 0
+        top_down[:,9*np.int(w/10):] = 0
 
         #top_down[:,] = 0
         #top_down[:,8*np.int(w/10)] = 0 
 
-        #top_down[:,9*np.int(w/10):] = 0
+        
 
         n_windows = self.n_windows
         window_height = np.int(top_down.shape[0]/n_windows)
@@ -216,7 +248,7 @@ class image_converter:
                 try:
                     leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
                 except ValueError as e:
-                    leftx_current = self.lastleftx 
+                    leftx_current = (self.lastleftx+leftx_current)/2
                 else:
                     self.lastleftx = leftx_current
 
@@ -227,7 +259,7 @@ class image_converter:
                 color = (0,0,255)
 
             else:
-                if len(good_left_inds) > minpix:
+                if False: #len(good_left_inds) > minpix:
                     self.Predicted_leftx = self.Predicted_rightx - self.distances_p2p[window]
                 else:
                     self.kalman_filters_left[window].predict_only;
@@ -242,7 +274,7 @@ class image_converter:
                 try:
                     rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
                 except ValueError as e:
-                    rightx_current = self.lastrightx 
+                    rightx_current = (self.lastrightx+rightx_current)/2 
                 else:
                     self.lastrightx = rightx_current
 
@@ -253,7 +285,7 @@ class image_converter:
                 color = (0,0,255)
 
             else:
-                if len(good_left_inds) > minpix:
+                if False: #len(good_left_inds) > minpix:
                     self.Predicted_rightx = self.Predicted_leftx + self.distances_p2p[window]
                 else:
                     self.kalman_filters_right[window].predict_only;
@@ -264,11 +296,24 @@ class image_converter:
             cv2.circle(top_down, point, 5, color, -1)
 
 
+
+            point = (self.Predicted_leftx+(self.Predicted_rightx-self.Predicted_leftx)/2, y)
+            color = (0,255,255)
+            #cv2.circle(top_down, point, 5, color, -1)
+
+            #top_down[:,w/2]=(0,255,255)
+
+            self.middlePoints[window] = [point[0],point[1]]
+
+
             if len(good_right_inds) > minpix and len(good_left_inds) > minpix:
                 self.distances_p2p[window] = self.Predicted_rightx - self.Predicted_leftx
             
 
             #print("Window:", window, "leftx_current:", leftx_current-self.Predicted_leftx, "rightx_current:", rightx_current-self.Predicted_rightx)
+
+        #cv2.circle(top_down, (np.int(w/2),np.int(h/2)), 15, (0,128,128), -1)  
+        self.middlePoints = np.float32(self.middlePoints)
 
         return top_down
 
