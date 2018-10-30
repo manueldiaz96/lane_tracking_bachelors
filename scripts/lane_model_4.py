@@ -234,7 +234,8 @@ class image_converter:
                 self.Predicted_leftx = xx[0,0]
 
             else:
-                self.Predicted_leftx = self.Predicted_rightx - self.distances_p2p[window]
+                self.kalman_filters_left[window].predict_only;
+                self.Predicted_leftx = self.kalman_filters_left[window].x_state[0,0]
                 
             point = (self.Predicted_leftx, y)            
             cv2.circle(top_down, point, 5, (0,0,255), -1)
@@ -255,7 +256,8 @@ class image_converter:
                 self.Predicted_rightx = xx[0,0]
 
             else:
-                self.Predicted_rightx = self.Predicted_leftx + self.distances_p2p[window]
+                self.kalman_filters_right[window].predict_only;
+                self.Predicted_rightx = self.kalman_filters_right[window].x_state[0,0]
 
             point = (self.Predicted_rightx, y)            
             cv2.circle(top_down, point, 5, (0,0,255), -1)
@@ -263,7 +265,7 @@ class image_converter:
 
             if len(good_right_inds) > minpix and len(good_left_inds) > minpix:
                 self.distances_p2p[window] = self.Predicted_rightx - self.Predicted_leftx
-
+                
             
 
             #print("Window:", window, "leftx_current:", leftx_current-self.Predicted_leftx, "rightx_current:", rightx_current-self.Predicted_rightx)
