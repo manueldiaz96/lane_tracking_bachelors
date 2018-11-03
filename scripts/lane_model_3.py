@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-#Dataset curvas y duckietown gazebo
-#Histograma de 3 bins y media del último bin
 
 from __future__ import print_function
 
