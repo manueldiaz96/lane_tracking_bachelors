@@ -42,7 +42,8 @@ class image_converter:
         elif roi_option == 2:
             self.roi_points = [[625, 540],[935, 540],[1300, 700],[340, 700]]
         else:
-            self.roi_points = [[605-60, 360+100],[745+50, 360+100],[1202, 720-50],[200, 720-50]]
+            self.roi_points = [[545, 460],[770, 460],[1202, 670],[200, 670]]
+
 
         #Define how many search windows are going to be used
         self.n_windows = 10
@@ -52,12 +53,20 @@ class image_converter:
         self.distances_p2p = []
         self.middlePoints = []
 
+        self.left_points_for_std = []
+        self.right_points_for_std = []
+
+
         for i in range(self.n_windows):
             #Create and initialize each KF
             self.kalman_filters_right.append(Tracker())
             self.kalman_filters_left.append(Tracker())
+
             self.distances_p2p.append(0)
             self.middlePoints.append(0)
+
+            self.left_points_for_std.append([])
+            self.right_points_for_std.append([])
 
         self.filtersNotInitialized = True
         self.lastleftx = 0
@@ -71,10 +80,12 @@ class image_converter:
         except CvBridgeError as e:
           print(e)
 
+        _, w, _ = cv_image.shape
+
         if self.filtersNotInitialized:
 
-            self.filtersNotInitialized = False;
-            _, w, _ = cv_image.shape
+            self.filtersNotInitialized = False
+
             val_left = 2*np.int(w/10)
             val_right = 8*np.int(w/10)
 
@@ -85,11 +96,11 @@ class image_converter:
                 self.kalman_filters_right[i].predict_only()
 
 
-        cv_image = self.warp_lane(cv_image)
+        cv_image = self.lane_detect(cv_image)
 
-        error = self.calculateError()
+        error = self.calculateError(w/2)
 
-        self.sendControlCommand(error)
+        cv_image = self.sendControlCommand(error, cv_image)
 
         is_bgr = len(cv_image.shape) == 3
 
@@ -102,46 +113,15 @@ class image_converter:
           except CvBridgeError as e:
             print(e)
 
-
-
-    def warp_lane(self, img):
+    def lane_detect(self, img):
 
         h, w, _ = img.shape
 
         roi_points = self.roi_points 
 
-        '''
-
-        for point in roi_points:
-          #print(point)
-          cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
-
-        cv2.line(img, (roi_points[0][0],roi_points[0][1]), (roi_points[1][0],roi_points[1][1]), (255,0,0), 3)
-        cv2.line(img, (roi_points[1][0],roi_points[1][1]), (roi_points[2][0],roi_points[2][1]), (255,0,0), 3)
-        cv2.line(img, (roi_points[2][0],roi_points[2][1]), (roi_points[3][0],roi_points[3][1]), (255,0,0), 3)
-        cv2.line(img, (roi_points[3][0],roi_points[3][1]), (roi_points[0][0],roi_points[0][1]), (255,0,0), 3)
-
-        return img
-
         # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
-        '''
-
-        rect = np.array(roi_points, dtype="float32")
-        (tl, tr, br, bl) = rect
-
-        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
-        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
-        maxWidth = max(int(widthA), int(widthB))
-
-        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
-        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
-        maxHeight = max(int(heightA), int(heightB))
-
-        dst = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype = "float32")
-
-        M = cv2.getPerspectiveTransform(rect, dst)
-        warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+        warped, M = self.warp_lane(roi_points, img)
 
         warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
@@ -159,17 +139,10 @@ class image_converter:
 
         final = self.paintLane(final, img, M)
 
-        #pts_array = np.dstack((np.array(self.middlePoints, dtype=np.float),np.array(self.middlePoints, dtype=np.float)))
-
-        #print(cv2.perspectiveTransform(pts_array, np.linalg.inv(M)))
-
         middlePoints = np.dstack((self.middlePoints[:,0],self.middlePoints[:,1]))
 
         middlePoints = cv2.perspectiveTransform(middlePoints, np.linalg.inv(M)).astype(np.int)
 
-
-        #print("----",middlePoints[:,:,:],"----")
-        #print(middlePoints[0,1,:])
 
         for point in range(middlePoints.shape[1]):
             self.middlePoints[point] = middlePoints[0,point,:]
@@ -177,22 +150,45 @@ class image_converter:
             #print(x,y)
             cv2.circle(final, (x, y), 5, (0,255,255), -1)
 
-        
-
-
         final[:,np.int(w/2)]=(255,125,0)
 
-        #return thresh1
         return final
 
-        #'''
+        #final = self.paintRoi(final, roi_points)
 
+        #return img
+
+    def warp_lane(self, roi_points, img):
+
+        rect = np.array(roi_points, dtype="float32")
+        (tl, tr, br, bl) = rect
+
+        widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+        widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+        maxWidth = max(int(widthA), int(widthB))
+
+        heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+        heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+        maxHeight = max(int(heightA), int(heightB))
+
+        dst = np.array([[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]], dtype = "float32")
+
+        M = cv2.getPerspectiveTransform(rect, dst)
+        warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
+
+        return warped, M
 
     def Threshold(self, gray_img):
 
         gray_img = cv2.blur(cv2.equalizeHist(gray_img),(5,5))
 
-        _ ,thresh1 = cv2.threshold(gray_img,245,250,cv2.THRESH_BINARY)
+        gamma = 20
+        gray_img2 = (np.power(gray_img.astype(np.float)/255, gamma) * 255).astype(np.uint8)
+
+        mean = np.uint8(15*np.mean(gray_img2))
+        #print(18*mean)
+
+        _ ,thresh1 = cv2.threshold(gray_img,240,250,cv2.THRESH_BINARY)
 
         return thresh1
         #return gray_img
@@ -210,9 +206,9 @@ class image_converter:
         #print (w)
         #print (np.int(w/10), 3*np.int(w/10), 7*np.int(w/10), 9*np.int(w/10))
 
-        #top_down[:,:np.int(w/10)] = 0
+        top_down[:,:np.int(w/20)] = 0
         top_down[:,3*np.int(w/10):7*np.int(w/10)] = 0
-        #top_down[:,9*np.int(w/10):] = 0
+        top_down[:,19*np.int(w/20):] = 0
 
         #top_down[:,] = 0
         #top_down[:,8*np.int(w/10)] = 0 
@@ -234,6 +230,10 @@ class image_converter:
         top_down = np.dstack((top_down, top_down, top_down))
         top_down = np.zeros_like(top_down)
 
+        #print(np.array(self.right_std, dtype=np.int))
+        #print(self.left_points_for_std)
+
+
         for window in range(n_windows):
 
             win_y_low = top_down.shape[0] - (window+1)*window_height
@@ -246,8 +246,12 @@ class image_converter:
             good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
             good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
 
+
+
             y = (win_y_high - win_y_low)/2
             y += win_y_low
+
+            
 
             if len(good_left_inds) > minpix:
                 try:
@@ -257,18 +261,34 @@ class image_converter:
                 else:
                     self.lastleftx = leftx_current
 
+                #######################################################################################
+
+                store_size = 5
+                
+                if len(self.left_points_for_std[window]) < store_size:
+                    self.left_points_for_std[window].append(leftx_current)
+
+                if len(self.left_points_for_std[window]) == store_size:
+                    self.left_points_for_std[window] = self.getMeanStd(self.left_points_for_std[window], leftx_current)
+
+
+                #######################################################################################
+
+                #leftx_current = self.left_points_for_std[window][-1]
+
                 x_st = [leftx_current]
                 z = np.expand_dims(x_st, axis=0).T
                 self.kalman_filters_left[window].kalman_filter(z)
                 self.Predicted_leftx = self.kalman_filters_left[window].x_state[0,0]
                 color = (0,0,255)
+                
 
             else:
-                if False: #len(good_left_inds) > minpix:
-                    self.Predicted_leftx = self.Predicted_rightx - self.distances_p2p[window]
-                else:
-                    self.kalman_filters_left[window].predict_only;
-                    self.Predicted_leftx = self.kalman_filters_left[window].x_state[0,0]
+                # if False: #len(good_left_inds) > minpix:
+                #     self.Predicted_leftx = self.Predicted_rightx - self.distances_p2p[window]
+                # else:
+                self.kalman_filters_left[window].predict_only;
+                self.Predicted_leftx = self.kalman_filters_left[window].x_state[0,0]
                 color = (0,255,0)
                 
             point = (self.Predicted_leftx, y)            
@@ -283,18 +303,35 @@ class image_converter:
                 else:
                     self.lastrightx = rightx_current
 
+                #######################################################################################
+                
+                store_size = 5
+
+
+                if len(self.right_points_for_std[window]) < store_size:
+                    self.right_points_for_std[window].append(rightx_current)
+                    #print(len(self.right_points_for_std[window]))
+
+                if len(self.right_points_for_std[window]) == store_size:
+                    self.right_points_for_std[window] = self.getMeanStd(self.right_points_for_std[window], rightx_current)
+
+                #######################################################################################
+
+                #rightx_current = self.right_points_for_std[window][-1]
+
                 x_st = [rightx_current]
                 z = np.expand_dims(x_st, axis=0).T
                 self.kalman_filters_right[window].kalman_filter(z)
                 self.Predicted_rightx = self.kalman_filters_right[window].x_state[0,0]
                 color = (0,0,255)
+                
 
             else:
-                if False: #len(good_left_inds) > minpix:
-                    self.Predicted_rightx = self.Predicted_leftx + self.distances_p2p[window]
-                else:
-                    self.kalman_filters_right[window].predict_only;
-                    self.Predicted_rightx = self.kalman_filters_right[window].x_state[0,0]
+                # if False: #len(good_left_inds) > minpix:
+                #     self.Predicted_rightx = self.Predicted_leftx + self.distances_p2p[window]
+                # else:
+                self.kalman_filters_right[window].predict_only;
+                self.Predicted_rightx = self.kalman_filters_right[window].x_state[0,0]
                 color = (255,0,0)
 
             point = (self.Predicted_rightx, y)            
@@ -329,20 +366,59 @@ class image_converter:
 
         return result
 
-    def calculateError(self):
+    def paintRoi(self, img, roi_points):
+
+        for point in roi_points:
+          #print(point)
+          cv2.circle(img, (point[0],point[1]), 5, (255,0,0), -1)
+
+        cv2.line(img, (roi_points[0][0],roi_points[0][1]), (roi_points[1][0],roi_points[1][1]), (255,0,0), 3)
+        cv2.line(img, (roi_points[1][0],roi_points[1][1]), (roi_points[2][0],roi_points[2][1]), (255,0,0), 3)
+        cv2.line(img, (roi_points[2][0],roi_points[2][1]), (roi_points[3][0],roi_points[3][1]), (255,0,0), 3)
+        cv2.line(img, (roi_points[3][0],roi_points[3][1]), (roi_points[0][0],roi_points[0][1]), (255,0,0), 3)
+
+        return img
+
+    def calculateError(self, w_2):
 
         error = 0
 
         for point in range(self.middlePoints.shape[0]):
-            error += (1/(point+1))*self.middlePoints[point][0]
+            error += (1/(point+1))*(self.middlePoints[point][0]-w_2)
 
-        print(error)
+        error = np.int(error)
+        #print(error)
 
         return error
 
-    def sendControlCommand(self, error):
+    def getMeanStd(self, points, lastPoint):
 
-        error = 1
+        mean = np.mean(points)
+        std = np.std(points)
+
+        append = (lastPoint > (mean-(10*std))) and  (lastPoint < (mean+(10*std)))
+
+        if append:
+            points.remove(points[0])
+            points.append(lastPoint)
+            #points = np.delete(points, 0)
+            #points = np.append(points, lastPoint)
+
+        return points
+
+    def sendControlCommand(self, error, img):
+
+        h, w, _ = img.shape
+
+        pt1 = (w/2, h-1)
+
+        pt2 = ((w/2)+error, 2*h/3)
+
+        img = cv2.arrowedLine( img, pt1, pt2, (128,64,134),  thickness=3, line_type=cv2.FILLED)
+
+        return img
+
+
 
 
 def main(args):
