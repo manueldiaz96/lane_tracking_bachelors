@@ -98,9 +98,9 @@ class image_converter:
 
         cv_image = self.lane_detect(cv_image)
 
-        error = self.calculateError(w/2)
+        #error = self.calculateError(w/2)
 
-        cv_image = self.sendControlCommand(error, cv_image)
+        #cv_image = self.sendControlCommand(error, cv_image)
 
         is_bgr = len(cv_image.shape) == 3
 
@@ -121,7 +121,7 @@ class image_converter:
 
         # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
 
-        warped, M = self.warp_lane(roi_points, img)
+        warped, M, maxPts = self.warp_lane(roi_points, img)
 
         warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
@@ -148,9 +148,13 @@ class image_converter:
             self.middlePoints[point] = middlePoints[0,point,:]
             x, y = self.middlePoints[point]
             #print(x,y)
-            cv2.circle(final, (x, y), 5, (0,255,255), -1)
+            #cv2.circle(final, (x, y), 5, (0,255,255), -1)
 
-        final[:,np.int(w/2)]=(255,125,0)
+        #final[:,np.int(w/2)]=(255,125,0)
+
+        error = self.calculateError(w/2)
+
+        final = self.sendControlCommand(error, img, M, maxPts)
 
         return final
 
@@ -176,7 +180,7 @@ class image_converter:
         M = cv2.getPerspectiveTransform(rect, dst)
         warped = cv2.warpPerspective(img, M, (maxWidth, maxHeight))
 
-        return warped, M
+        return warped, M, (maxWidth, maxHeight)
 
     def Threshold(self, gray_img):
 
@@ -362,7 +366,7 @@ class image_converter:
     def paintLane(self, warp_zero, image, perspective_M):
 
         newwarp = cv2.warpPerspective(warp_zero, np.linalg.inv(perspective_M), (image.shape[1], image.shape[0]))
-        result = cv2.addWeighted(image, 0.3, newwarp, 1.5, 0)
+        result = cv2.addWeighted(image, 0.2, newwarp, 0.8, 0)
 
         return result
 
@@ -406,7 +410,7 @@ class image_converter:
 
         return points
 
-    def sendControlCommand(self, error, img):
+    def sendControlCommand(self, error, img, M, maxPts):
 
         h, w, _ = img.shape
 
@@ -414,9 +418,29 @@ class image_converter:
 
         pt2 = ((w/2)+error, 2*h/3)
 
-        img = cv2.arrowedLine( img, pt1, pt2, (128,64,134),  thickness=3, line_type=cv2.FILLED)
+        #pt1_w = np.dstack((pt1[0], pt1[1]))
 
-        return img
+        #pt2_w = np.dstack((pt2[0], pt2[1]))
+
+        #pt1_w = cv2.perspectiveTransform(pt1_w, M).astype(np.int)
+
+        #pt2_w = cv2.perspectiveTransform(pt2_w, M).astype(np.int)
+
+        #for point in range(pt1_w.shape[1]):
+            #pt1 = pt1_w[0,point,:]
+            #pt2 = pt2_w[0,point,:]
+
+        #arrow =  np.zeros_like(cv2.warpPerspective(img, M, maxPts))
+
+        arrow = cv2.arrowedLine( img, pt1, pt2, (128,64,134),  thickness=3, line_type=cv2.FILLED)
+
+        #newwarp = cv2.warpPerspective( arrow, np.linalg.inv(M), (w, h))
+
+        #result = cv2.addWeighted(img, 0.3, newwarp, 1.5, 0)
+
+        #result = cv2.arrowedLine( result, pt1, pt2, (128,64,134),  thickness=3, line_type=cv2.FILLED)
+
+        return arrow
 
 
 
