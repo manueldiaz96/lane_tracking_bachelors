@@ -24,7 +24,15 @@ echo
 
 export ROS_IP=$(hostname -I)
 
-echo Everything ready. $ROS_IP as ROS_IP
+echo Everything ready with $ROS_IP as ROS_IP
 printf "${RED}Remember to enable ufw!${reset}\n"
+
+echo 
+echo -------------------------------------------
+echo
+
+yellow="\033[1;33m"
+
+printf "${yellow}Starting ROSCORE ${reset}\n\n"
 
 roscore && sudo ufw enable
