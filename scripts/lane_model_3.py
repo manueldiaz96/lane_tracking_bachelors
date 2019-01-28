@@ -13,6 +13,7 @@ import numpy as np
 from KF_tracker import Tracker
 
 from std_msgs.msg import String
+from std_msgs.msg import Float64
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -24,6 +25,7 @@ class image_converter:
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback)
         self.image_pub = rospy.Publisher("/lane_model/lane",Image, queue_size = 2)
+        self.steer_angle = rospy.Publisher("/steer_angle_img", Float64, queue_size=1)
 
         #Create where to store the polynomial fitting for each of the lines
         self.left_fit = np.zeros((3,3), dtype=np.double)
@@ -417,6 +419,14 @@ class image_converter:
         pt1 = (w/2, h-1)
 
         pt2 = ((w/2)+error, 2*h/3)
+
+        num = pt2[0]-pt1[0]
+
+        den = np.sqrt((pt2[1]-pt1[1])**2 + (pt2[0]-pt1[0])**2)
+
+        theta = np.arcsin(num/den)
+
+        self.steer_angle.publish(theta)
 
         #pt1_w = np.dstack((pt1[0], pt1[1]))
 
