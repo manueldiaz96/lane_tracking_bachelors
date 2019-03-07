@@ -23,7 +23,7 @@ class image_converter:
 
         #Create ROS objects for image handling
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/usb_cam/image_raw",Image,self.callback)
+        self.image_sub = rospy.Subscriber("/camera/image_raw",Image,self.callback)
         self.image_pub = rospy.Publisher("/lane_model/lane",Image, queue_size = 2)
         self.steer_angle = rospy.Publisher("/steer_angle_img", Float64, queue_size=1)
 
