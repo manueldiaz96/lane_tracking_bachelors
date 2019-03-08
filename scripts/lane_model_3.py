@@ -43,6 +43,8 @@ class image_converter:
             self.roi_points = [[600, 530],[800, 530],[1152, 700],[300, 700]]
         elif roi_option == 2:
             self.roi_points = [[625, 540],[935, 540],[1300, 700],[340, 700]]
+        elif roi_option == 3:
+            self.roi_points = [[360, 360],[610, 360],[920, 540],[80, 540]]
         else:
             self.roi_points = [[545, 460],[770, 460],[1202, 670],[200, 670]]
 
@@ -97,12 +99,11 @@ class image_converter:
                 self.kalman_filters_right[i].x_state = np.array([[val_right, 0]]).T
                 self.kalman_filters_right[i].predict_only()
 
+        #print(cv_image.shape)
 
         cv_image = self.lane_detect(cv_image)
 
-        #error = self.calculateError(w/2)
-
-        #cv_image = self.sendControlCommand(error, cv_image)
+        #cv_image = self.paintRoi(cv_image, self.roi_points)
 
         is_bgr = len(cv_image.shape) == 3
 
@@ -139,7 +140,7 @@ class image_converter:
         
         final = self.findLanes(thresh1)
 
-        final = self.paintLane(final, img, M)
+        top_down = self.paintLane(final, img, M)
 
         middlePoints = np.dstack((self.middlePoints[:,0],self.middlePoints[:,1]))
 
@@ -150,13 +151,13 @@ class image_converter:
             self.middlePoints[point] = middlePoints[0,point,:]
             x, y = self.middlePoints[point]
             #print(x,y)
-            #cv2.circle(final, (x, y), 5, (0,255,255), -1)
+            cv2.circle(top_down, (x, y), 5, (0,255,255), -1)
 
-        #final[:,np.int(w/2)]=(255,125,0)
+        top_down[:,np.int(self.middlePoints[0][0])]=(255,125,0)
 
-        error = self.calculateError(w/2)
+        error = self.calculateError((w/2))
 
-        final = self.sendControlCommand(error, img, M, maxPts)
+        final = self.sendControlCommand(error, top_down, M, maxPts)
 
         return final
 
@@ -389,11 +390,16 @@ class image_converter:
 
         error = 0
 
-        for point in range(self.middlePoints.shape[0]):
-            error += (1/(point+1))*(self.middlePoints[point][0]-w_2)
+        #error = self.middlePoints - w_2
+
+        error = np.mean(-self.middlePoints[:][0]+self.middlePoints[0][0])
+
+        # for point in range(self.middlePoints.shape[0]):
+        #     error += (self.middlePoints[point][0]-self.middlePoints[0][0])
+        #     print(error)
+
 
         error = np.int(error)
-        #print(error)
 
         return error
 
@@ -416,7 +422,7 @@ class image_converter:
 
         h, w, _ = img.shape
 
-        pt1 = (w/2, h-1)
+        pt1 = (np.int(self.middlePoints[0][0]), h-1)
 
         pt2 = ((w/2)+error, 2*h/3)
 
@@ -442,7 +448,7 @@ class image_converter:
 
         #arrow =  np.zeros_like(cv2.warpPerspective(img, M, maxPts))
 
-        arrow = cv2.arrowedLine( img, pt1, pt2, (128,64,134),  thickness=3, line_type=cv2.FILLED)
+        arrow = cv2.arrowedLine( img, pt1, pt2, (0,255,134),  thickness=3, line_type=cv2.FILLED)
 
         #newwarp = cv2.warpPerspective( arrow, np.linalg.inv(M), (w, h))
 
