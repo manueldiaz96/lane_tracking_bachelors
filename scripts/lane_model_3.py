@@ -146,24 +146,23 @@ class image_converter:
 
         middlePoints = cv2.perspectiveTransform(middlePoints, np.linalg.inv(M)).astype(np.int)
 
+        # for point in [0, middlePoints.shape[1]-1]:
+        #     self.middlePoints[point] = middlePoints[0,point,:]
+        #     x, y = self.middlePoints[point]
+        #     #print(x,y)
+        #     cv2.circle(top_down, (x, y), 5, (0,255,255), -1)
 
-        for point in range(middlePoints.shape[1]):
-            self.middlePoints[point] = middlePoints[0,point,:]
-            x, y = self.middlePoints[point]
-            #print(x,y)
-            cv2.circle(top_down, (x, y), 5, (0,255,255), -1)
+        # top_down[:,np.int(self.middlePoints[0][0])]=(255,125,0)
 
-        top_down[:,np.int(self.middlePoints[0][0])]=(255,125,0)
+        # error = self.calculateError()
 
-        error = self.calculateError((w/2))
+        # final = self.sendControlCommand(error, top_down, M, maxPts)
 
-        final = self.sendControlCommand(error, top_down, M, maxPts)
-
-        return final
+        # return final
 
         #final = self.paintRoi(final, roi_points)
 
-        #return img
+        return top_down
 
     def warp_lane(self, roi_points, img):
 
@@ -368,6 +367,15 @@ class image_converter:
 
     def paintLane(self, warp_zero, image, perspective_M):
 
+        
+
+        warp_zero = self.sendControlCommand(warp_zero)
+
+        for point in self.middlePoints:
+            x, y = point
+            #print(x,y)
+            cv2.circle(warp_zero, (x, y), 5, (0,255,255), -1)
+
         newwarp = cv2.warpPerspective(warp_zero, np.linalg.inv(perspective_M), (image.shape[1], image.shape[0]))
         result = cv2.addWeighted(image, 0.2, newwarp, 0.8, 0)
 
@@ -386,13 +394,13 @@ class image_converter:
 
         return img
 
-    def calculateError(self, w_2):
+    def calculateError(self):
 
         error = 0
 
         #error = self.middlePoints - w_2
 
-        error = np.mean(-self.middlePoints[:][0]+self.middlePoints[0][0])
+        error = np.mean(self.middlePoints[:][0]-self.middlePoints[0][0])
 
         # for point in range(self.middlePoints.shape[0]):
         #     error += (self.middlePoints[point][0]-self.middlePoints[0][0])
@@ -418,13 +426,13 @@ class image_converter:
 
         return points
 
-    def sendControlCommand(self, error, img, M, maxPts):
+    def sendControlCommand(self, img):
 
         h, w, _ = img.shape
 
-        pt1 = (np.int(self.middlePoints[0][0]), h-1)
+        pt1 = (np.int(self.middlePoints[0][0]), np.int(self.middlePoints[0][1]))
 
-        pt2 = ((w/2)+error, 2*h/3)
+        pt2 = (np.int(self.middlePoints[5][0]), np.int(self.middlePoints[5][1]))
 
         num = pt2[0]-pt1[0]
 

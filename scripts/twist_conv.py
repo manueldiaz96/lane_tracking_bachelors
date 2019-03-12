@@ -28,7 +28,7 @@ def joint_state_create(angle):
 	js_msg = JointState()
 	js_msg.header = Header(stamp=rospy.Time.now())
 	js_msg.name = ['steering_joint', 'front_left_steer_joint', 'front_right_steer_joint', 'front_left_wheel_joint', 'front_right_wheel_joint', 'rear_left_wheel_joint', 'rear_right_wheel_joint']
-  	js_msg.position = [angle*1.5, angle*1.5, angle*1.5, 0.0, 0.0, 0.0, 0.0]
+  	js_msg.position = [angle, angle, angle, 0.0, 0.0, 0.0, 0.0]
 
   	return js_msg
 	
