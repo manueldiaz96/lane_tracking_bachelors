@@ -27,11 +27,6 @@ class image_converter:
         self.image_pub = rospy.Publisher("/lane_model/lane",Image, queue_size = 2)
         self.steer_angle = rospy.Publisher("/steer_angle_img", Float64, queue_size=1)
 
-        #Create where to store the polynomial fitting for each of the lines
-        self.left_fit = np.zeros((3,3), dtype=np.double)
-        self.right_fit = np.zeros((3,3), dtype=np.double)
-        self.pts_raw = [0,0,0,0]
-
         #Create the haar-like feature kernel to filter the image
         self.kernel = np.array([[0,0,1,1,1,0,0],[0,0,1,1,1,0,0],[0,0,1,1,1,0,0],[0,0,1,1,1,0,0]], dtype=np.float32)
         kernel_mult = 10
@@ -68,9 +63,6 @@ class image_converter:
 
             self.distances_p2p.append(0)
             self.middlePoints.append(0)
-
-            self.left_points_for_std.append([])
-            self.right_points_for_std.append([])
 
         self.filtersNotInitialized = True
         self.lastleftx = 0
@@ -122,8 +114,6 @@ class image_converter:
 
         roi_points = self.roi_points 
 
-        # # https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
-
         warped, M, maxPts = self.warp_lane(roi_points, img)
 
         warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
@@ -142,9 +132,9 @@ class image_converter:
 
         top_down = self.paintLane(final, img, M)
 
-        middlePoints = np.dstack((self.middlePoints[:,0],self.middlePoints[:,1]))
+        # middlePoints = np.dstack((self.middlePoints[:,0],self.middlePoints[:,1]))
 
-        middlePoints = cv2.perspectiveTransform(middlePoints, np.linalg.inv(M)).astype(np.int)
+        # middlePoints = cv2.perspectiveTransform(middlePoints, np.linalg.inv(M)).astype(np.int)
 
         # for point in [0, middlePoints.shape[1]-1]:
         #     self.middlePoints[point] = middlePoints[0,point,:]
@@ -152,15 +142,6 @@ class image_converter:
         #     #print(x,y)
         #     cv2.circle(top_down, (x, y), 5, (0,255,255), -1)
 
-        # top_down[:,np.int(self.middlePoints[0][0])]=(255,125,0)
-
-        # error = self.calculateError()
-
-        # final = self.sendControlCommand(error, top_down, M, maxPts)
-
-        # return final
-
-        #final = self.paintRoi(final, roi_points)
 
         return top_down
 
@@ -219,7 +200,6 @@ class image_converter:
         #top_down[:,] = 0
         #top_down[:,8*np.int(w/10)] = 0 
 
-        
 
         n_windows = self.n_windows
         window_height = np.int(top_down.shape[0]/n_windows)
@@ -267,21 +247,6 @@ class image_converter:
                 else:
                     self.lastleftx = leftx_current
 
-                #######################################################################################
-
-                store_size = 5
-                
-                if len(self.left_points_for_std[window]) < store_size:
-                    self.left_points_for_std[window].append(leftx_current)
-
-                if len(self.left_points_for_std[window]) == store_size:
-                    self.left_points_for_std[window] = self.getMeanStd(self.left_points_for_std[window], leftx_current)
-
-
-                #######################################################################################
-
-                #leftx_current = self.left_points_for_std[window][-1]
-
                 x_st = [leftx_current]
                 z = np.expand_dims(x_st, axis=0).T
                 self.kalman_filters_left[window].kalman_filter(z)
@@ -309,22 +274,6 @@ class image_converter:
                 else:
                     self.lastrightx = rightx_current
 
-                #######################################################################################
-                
-                store_size = 5
-
-
-                if len(self.right_points_for_std[window]) < store_size:
-                    self.right_points_for_std[window].append(rightx_current)
-                    #print(len(self.right_points_for_std[window]))
-
-                if len(self.right_points_for_std[window]) == store_size:
-                    self.right_points_for_std[window] = self.getMeanStd(self.right_points_for_std[window], rightx_current)
-
-                #######################################################################################
-
-                #rightx_current = self.right_points_for_std[window][-1]
-
                 x_st = [rightx_current]
                 z = np.expand_dims(x_st, axis=0).T
                 self.kalman_filters_right[window].kalman_filter(z)
@@ -342,7 +291,6 @@ class image_converter:
 
             point = (self.Predicted_rightx, y)            
             cv2.circle(top_down, point, 5, color, -1)
-
 
 
             point = (self.Predicted_leftx+(self.Predicted_rightx-self.Predicted_leftx)/2, y)
@@ -366,8 +314,6 @@ class image_converter:
         return top_down
 
     def paintLane(self, warp_zero, image, perspective_M):
-
-        
 
         warp_zero = self.sendControlCommand(warp_zero)
 
@@ -411,21 +357,6 @@ class image_converter:
 
         return error
 
-    def getMeanStd(self, points, lastPoint):
-
-        mean = np.mean(points)
-        std = np.std(points)
-
-        append = (lastPoint > (mean-(10*std))) and  (lastPoint < (mean+(10*std)))
-
-        if append:
-            points.remove(points[0])
-            points.append(lastPoint)
-            #points = np.delete(points, 0)
-            #points = np.append(points, lastPoint)
-
-        return points
-
     def sendControlCommand(self, img):
 
         h, w, _ = img.shape
@@ -442,20 +373,6 @@ class image_converter:
 
         self.steer_angle.publish(theta)
 
-        #pt1_w = np.dstack((pt1[0], pt1[1]))
-
-        #pt2_w = np.dstack((pt2[0], pt2[1]))
-
-        #pt1_w = cv2.perspectiveTransform(pt1_w, M).astype(np.int)
-
-        #pt2_w = cv2.perspectiveTransform(pt2_w, M).astype(np.int)
-
-        #for point in range(pt1_w.shape[1]):
-            #pt1 = pt1_w[0,point,:]
-            #pt2 = pt2_w[0,point,:]
-
-        #arrow =  np.zeros_like(cv2.warpPerspective(img, M, maxPts))
-
         arrow = cv2.arrowedLine( img, pt1, pt2, (0,255,134),  thickness=3, line_type=cv2.FILLED)
 
         #newwarp = cv2.warpPerspective( arrow, np.linalg.inv(M), (w, h))
@@ -465,9 +382,6 @@ class image_converter:
         #result = cv2.arrowedLine( result, pt1, pt2, (128,64,134),  thickness=3, line_type=cv2.FILLED)
 
         return arrow
-
-
-
 
 def main(args):
 
